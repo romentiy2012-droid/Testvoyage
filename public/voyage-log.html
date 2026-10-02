@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Судовой журнал - Voyage Passenger Log</title>
+    <meta name="description" content="Судовой журнал - учёт пассажиров и рейсов" />
+    <meta name="theme-color" content="#1e3a5f" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        slate: {
+                            900: '#0f172a',
+                            800: '#1e293b',
+                            700: '#334155',
+                            500: '#64748b',
+                            400: '#94a3b8',
+                            300: '#cbd5e1',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(100, 116, 139, 0.3); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(100, 116, 139, 0.5); }
+        input[type="date"], input[type="time"] { color-scheme: dark; }
+        ::selection { background-color: rgba(59, 130, 246, 0.3); color: white; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        .fade-in { animation: fadeIn 0.3s ease-out; }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 text-white min-h-screen">
+    <div id="root"></div>
+
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // ===== STORE =====
+        const STORAGE_KEYS = {
+            passengers: 'voyage_log_passengers',
+            voyages: 'voyage_log_voyages',
+            portCalls: 'voyage_log_port_calls',
+            fuel: 'voyage_log_fuel',
+            dailyReports: 'voyage_log_daily_reports',
+            shipInfo: 'voyage_log_ship_info',
+        };
+
+        function generateId() {
+            return Date.now().toString(36) + Math.random().toString(36).substr(2);
+        }
+
+        function getItem(key, defaultValue) {
+            try {
+                const item = localStorage.getItem(key);
+                return item ? JSON.parse(item) : defaultValue;
+            } catch { return defaultValue; }
+        }
+
+        function setItem(key, value) {
+            localStorage.setItem(key, JSON.stringify(value));
+        }
+
+        function getPassengers() { return getItem(STORAGE_KEYS.passengers, []); }
+        function savePassenger(data) {
+            const passengers = getPassengers();
+            const p = { ...data, id: generateId(), createdAt: new Date().toISOString() };
+            passengers.push(p);
+            setItem(STORAGE_KEYS.passengers, passengers);
+            return p;
+        }
+        function deletePassenger(id) {
+            setItem(STORAGE_KEYS.passengers, getPassengers().filter(p => p.id !== id));
+        }
+
+        function getVoyages() { return getItem(STORAGE_KEYS.voyages, []); }
+        function saveVoyage(data) {
+            const voyages = getVoyages();
+            const v = { ...data, id: generateId(), createdAt: new Date().toISOString() };
+            voyages.push(v);
+            setItem(STORAGE_KEYS.voyages, voyages);
+            return v;
+        }
+        function updateVoyage(id, data) {
+            const voyages = getVoyages();
+            const i = voyages.findIndex(v => v.id === id);
+            if (i !== -1) { voyages[i] = { ...voyages[i], ...data }; setItem(STORAGE_KEYS.voyages, voyages); }
+        }
+        function deleteVoyage(id) {
+            setItem(STORAGE_KEYS.voyages, getVoyages().filter(v => v.id !== id));
+        }
+
+        function getPortCalls() { return getItem(STORAGE_KEYS.portCalls, []); }
+        function savePortCall(data) {
+            const items = getPortCalls();
+            const p = { ...data, id: generateId(), createdAt: new Date().toISOString() };
+            items.push(p);
+            setItem(STORAGE_KEYS.portCalls, items);
+            return p;
+        }
+        function deletePortCall(id) {
+            setItem(STORAGE_KEYS.portCalls, getPortCalls().filter(p => p.id !== id));
+        }
+
+        function getFuelRecords() { return getItem(STORAGE_KEYS.fuel, []); }
+        function saveFuelRecord(data) {
+            const items = getFuelRecords();
+            const r = { ...data, id: generateId(), createdAt: new Date().toISOString() };
+            items.push(r);
+            setItem(STORAGE_KEYS.fuel, items);
+            return r;
+        }
+        function deleteFuelRecord(id) {
+            setItem(STORAGE_KEYS.fuel, getFuelRecords().filter(r => r.id !== id));
+        }
+
+        function getDailyReports() { return getItem(STORAGE_KEYS.dailyReports, []); }
+        function saveDailyReport(data) {
+            const items = getDailyReports();
+            const r = { ...data, id: generateId(), createdAt: new Date().toISOString() };
+            items.push(r);
+            setItem(STORAGE_KEYS.dailyReports, items);
+            return r;
+        }
+        function deleteDailyReport(id) {
+            setItem(STORAGE_KEYS.dailyReports, getDailyReports().filter(r => r.id !== id));
+        }
+
+        function getShipInfo() {
+            return getItem(STORAGE_KEYS.shipInfo, {
+                name: '', imo: '', callSign: '', flag: '', type: '',
+                length: 0, beam: 0, draft: 0, grossTonnage: 0,
+                passengerCapacity: 0, crewCapacity: 0, enginePower: 0, yearBuilt: 0,
+            });
+        }
+        function saveShipInfo(info) { setItem(STORAGE_KEYS.shipInfo, info); }
+
+        function exportAllData() {
+            return JSON.stringify({
+                passengers: getPassengers(), voyages: getVoyages(),
+                portCalls: getPortCalls(), fuel: getFuelRecords(),
+                dailyReports: getDailyReports(), shipInfo: getShipInfo(),
+                exportDate: new Date().toISOString(),
+            }, null, 2);
+        }
+        function importAllData(json) {
+            try {
+                const d = JSON.parse(json);
+                if (d.passengers) setItem(STORAGE_KEYS.passengers, d.passengers);
+                if (d.voyages) setItem(STORAGE_KEYS.voyages, d.voyages);
+                if (d.portCalls) setItem(STORAGE_KEYS.portCalls, d.portCalls);
+                if (d.fuel) setItem(STORAGE_KEYS.fuel, d.fuel);
+                if (d.dailyReports) setItem(STORAGE_KEYS.dailyReports, d.dailyReports);
+                if (d.shipInfo) setItem(STORAGE_KEYS.shipInfo, d.shipInfo);
+                return true;
+            } catch { return false; }
+        }
+        function clearAllData() {
+            Object.values(STORAGE_KEYS).forEach(k => localStorage.removeItem(k));
+        }
+
+        // ===== DASHBOARD =====
+        function Dashboard() {
+            const passengers = getPassengers();
+            const voyages = getVoyages();
+            const portCalls = getPortCalls();
+            const fuelRecords = getFuelRecords();
+            const dailyReports = getDailyReports();
+            const shipInfo = getShipInfo();
+            const activeVoyage = voyages.find(v => v.status === 'active');
+            const totalFuel = fuelRecords.reduce((s, r) => s + r.quantityLiters, 0);
+            const totalFuelCost = fuelRecords.reduce((s, r) => s + r.totalCost, 0);
+
+            const stats = [
+                { label: 'Пассажиры', value: passengers.length, icon: '👥', color: 'from-blue-500 to-blue-600' },
+                { label: 'Рейсы', value: voyages.length, icon: '🚢', color: 'from-cyan-500 to-cyan-600' },
+                { label: 'Заходы в порты', value: portCalls.length, icon: '🏗️', color: 'from-emerald-500 to-emerald-600' },
+                { label: 'Суточные донесения', value: dailyReports.length, icon: '📋', color: 'from-purple-500 to-purple-600' },
+            ];
+
+            return (
+                <div className="space-y-6 fade-in">
+                    <div className="bg-gradient-to-r from-blue-600/20 to-cyan-600/20 border border-blue-500/20 rounded-2xl p-6">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div>
+                                <h2 className="text-2xl font-bold text-white mb-1">{shipInfo.name || 'Судовой журнал'}</h2>
+                                <p className="text-slate-300">
+                                    {activeVoyage ? `Активный рейс: ${activeVoyage.name} (${activeVoyage.departurePort} → ${activeVoyage.arrivalPort})` : 'Нет активного рейса'}
+                                </p>
+                            </div>
+                            {shipInfo.imo && (
+                                <div className="text-right text-sm text-slate-400">
+                                    <div>IMO: {shipInfo.imo}</div>
+                                    <div>Позывной: {shipInfo.callSign}</div>
+                                    <div>Флаг: {shipInfo.flag}</div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                        {stats.map(s => (
+                            <div key={s.label} className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-4 hover:border-blue-500/30 transition-all">
+                                <div className="flex items-center gap-3">
+                                    <div className={`w-12 h-12 bg-gradient-to-br ${s.color} rounded-xl flex items-center justify-center text-xl shadow-lg`}>{s.icon}</div>
+                                    <div><div className="text-2xl font-bold text-white">{s.value}</div><div className="text-xs text-slate-400">{s.label}</div></div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-5">
+                            <h3 className="text-lg font-semibold text-white mb-4">⛽ Топливо</h3>
+                            <div className="space-y-3">
+                                <div className="flex justify-between"><span className="text-slate-400">Всего заправлено:</span><span className="text-white font-semibold">{totalFuel.toLocaleString('ru-RU')} л</span></div>
+                                <div className="flex justify-between"><span className="text-slate-400">Общая стоимость:</span><span className="text-emerald-400 font-semibold">{totalFuelCost.toLocaleString('ru-RU')} ₽</span></div>
+                                <div className="flex justify-between"><span className="text-slate-400">Записей:</span><span className="text-white font-semibold">{fuelRecords.length}</span></div>
+                            </div>
+                        </div>
+                        <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-5">
+                            <h3 className="text-lg font-semibold text-white mb-4">🚢 Судно</h3>
+                            <div className="space-y-3">
+                                <div className="flex justify-between"><span className="text-slate-400">Название:</span><span className="text-white font-semibold">{shipInfo.name || '—'}</span></div>
+                                <div className="flex justify-between"><span className="text-slate-400">Тип:</span><span className="text-white font-semibold">{shipInfo.type || '—'}</span></div>
+                                <div className="flex justify-between"><span className="text-slate-400">Вместимость:</span><span className="text-white font-semibold">{shipInfo.passengerCapacity || 0} пасс. / {shipInfo.crewCapacity || 0} экипаж</span></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-5">
+                        <h3 className="text-lg font-semibold text-white mb-4">📊 Последние записи</h3>
+                        {passengers.length === 0 && voyages.length === 0 ? (
+                            <div className="text-center py-8 text-slate-500">
+                                <div className="text-4xl mb-3">📝</div>
+                                <p>Нет записей. Начните с создания рейса и добавления пассажиров.</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-2">
+                                {voyages.slice(-3).reverse().map(v => (
+                                    <div key={v.id} className="flex items-center gap-3 p-3 bg-slate-700/30 rounded-xl">
+                                        <span className="text-lg">🚢</span>
+                                        <div className="flex-1">
+                                            <div className="text-sm font-medium text-white">{v.name}</div>
+                                            <div className="text-xs text-slate-400">{v.departurePort} → {v.arrivalPort}</div>
+                                        </div>
+                                        <span className={`text-xs px-2 py-1 rounded-full ${v.status === 'active' ? 'bg-emerald-500/20 text-emerald-300' : v.status === 'completed' ? 'bg-blue-500/20 text-blue-300' : v.status === 'planned' ? 'bg-yellow-500/20 text-yellow-300' : 'bg-red-500/20 text-red-300'}`}>
+                                            {v.status === 'active' ? 'Активный' : v.status === 'completed' ? 'Завершён' : v.status === 'planned' ? 'Запланирован' : 'Отменён'}
+                                        </span>
+                                    </div>
+                                ))}
+                                {passengers.slice(-3).reverse().map(p => (
+                                    <div key={p.id} className="flex items-center gap-3 p-3 bg-slate-700/30 rounded-xl">
+                                        <span className="text-lg">👤</span>
+                                        <div className="flex-1">
+                                            <div className="text-sm font-medium text-white">{p.lastName} {p.firstName}</div>
+                                            <div className="text-xs text-slate-400">Каютa: {p.cabinNumber} | Билет: {p.ticketNumber}</div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        // ===== PASSENGERS =====
+        function Passengers({ onChange }) {
+            const [passengers, setPassengers] = useState(getPassengers());
+            const [showForm, setShowForm] = useState(false);
+            const [search, setSearch] = useState('');
+            const [filterVoyage, setFilterVoyage] = useState('');
+            const [form, setForm] = useState({
+                firstName: '', lastName: '', middleName: '', documentType: 'passport',
+                documentNumber: '', citizenship: 'Россия', dateOfBirth: '', gender: 'male',
+                cabinNumber: '', ticketNumber: '', voyageId: '', embarkationPort: '',
+                disembarkationPort: '', category: 'adult', notes: '',
+            });
+            const voyages = getVoyages();
+            const filtered = passengers.filter(p => {
+                const ms = search === '' || `${p.lastName} ${p.firstName} ${p.middleName} ${p.documentNumber} ${p.ticketNumber}`.toLowerCase().includes(search.toLowerCase());
+                const mv = filterVoyage === '' || p.voyageId === filterVoyage;
+                return ms && mv;
+            });
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                savePassenger(form);
+                setPassengers(getPassengers());
+                setForm({ firstName: '', lastName: '', middleName: '', documentType: 'passport', documentNumber: '', citizenship: 'Россия', dateOfBirth: '', gender: 'male', cabinNumber: '', ticketNumber: '', voyageId: '', embarkationPort: '', disembarkationPort: '', category: 'adult', notes: '' });
+                setShowForm(false);
+                onChange();
+            };
+
+            const handleDelete = (id) => {
+                if (confirm('Удалить пассажира?')) { deletePassenger(id); setPassengers(getPassengers()); onChange(); }
+            };
+
+            const getVoyageName = (id) => { const v = voyages.find(v => v.id === id); return v ? v.name : '—'; };
+            const inputCls = "w-full bg-slate-900/50 border border-slate-700/50 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500/50";
+
+            return (
+                <div className="space-y-4 fade-in">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <h2 className="text-xl font-bold text-white">👥 Пассажиры <span className="text-sm font-normal text-slate-400">({passengers.length})</span></h2>
+                        <button onClick={() => setShowForm(!showForm)} className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-medium transition-all shadow-lg shadow-blue-500/20">
+                            {showForm ? '✕ Отмена' : '+ Добавить'}
+                        </button>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row gap-3">
+                        <input type="text" placeholder="Поиск по ФИО, документу, билету..." value={search} onChange={e => setSearch(e.target.value)} className="flex-1 bg-slate-800/50 border border-slate-700/50 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500/50" />
+                        <select value={filterVoyage} onChange={e => setFilterVoyage(e.target.value)} className="bg-slate-800/50 border border-slate-700/50 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500/50">
+                            <option value="">Все рейсы</option>
+                            {voyages.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+                        </select>
+                    </div>
+
+                    {showForm && (
+                        <form onSubmit={handleSubmit} className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-5 space-y-4">
+                            <h3 className="text-lg font-semibold text-white">Новый пассажир</h3>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                <div><label className="text-xs text-slate-400 mb-1 block">Фамилия *</label><input required value={form.lastName} onChange={e => setForm({...form, lastName: e.target.value})} className={inputCls} /></div>
+                                <div><label className="text-xs text-slate-400 mb-1 block">Имя *</label><input required value={form.firstName} onChange={e => setForm({...form, firstName: e.target.value})} className={inputCls} /></div>
+                                <div><label className="text-xs text-slate-400 mb-1 block">Отчество</label><input value={form.middleName} onChange={e => setForm({...form, middleName: e.target.value})} className={inputCls} /></div>
+                                <div><label className="text-xs text-slate-400 mb-1 block">Дата рождения</label><input type="date" value={form.dateOfBirth} onChange={e => setForm({...form, dateOfBirth: e.target.value})} className={inputCls} /></div>
+                                <div><label className="text-xs text-slate-400 mb-1 block">Пол</label>
+                                    <select value={form.gender} onChange={e => setForm({...form, gender: e.target.value})} className={inputCls}>
+                                        <option value="male">Мужской</option><option value="female">Женский</option>
+                                    </select>
+                                </div>
+                                <div><label className="text-xs text-slate-400 mb-1 block">Гражданство</label><input value={form.citizenship} onChange={e => setForm({...form, citizenship: e.target.value})} className={inputCls} /></div>
+                                <div><label className="text-xs text-slate-400 mb-1 block">Тип документа</label>
+                                    <select value={form.documentType} onChange={e => setForm({...form, documentType: e.target.value})} className={inputCls}>
+                                        <option value="passport">Паспорт</option><option value="internal">Внутр. паспорт</option><option value="birth_cert">Свид. о рождении</option><option value="foreign_passport">Загранпаспорт</option>
+                                    </select>
+                                </div>
+                                <div><label className="text-xs text-slate-400 mb-1 block">Номер документа *</label><input required value={form.documentNumber} onChange={e => setForm({...form, documentNumber: e.target.value})} className={inputCls} /></div>
+                                <div><label className="text-xs text-slate-400 mb-1 block">Номер билета *</label><input required value={form.ticketNumber} onChange={e => setForm({...form, ticketNumber: e.target.value})} className={inputCls} /></div>
+                                <div><label className="text-xs text-slate-400 mb-1 block">Номер каюты</label><input value={form.cabinNumber} onChange={e => setForm({...form, cabinNumber: e.target.value})} className={inputCls} /></div>
+                                <div><label className="text-xs text-slate-400 mb-1 block">Рейс</label>
+                                    <select value={form.voyageId} onChange={e => setForm({...form, voyageId: e.target.value})} className={inputCls}>
+                                        <option value="">Не привязан</option>
+                                        {voyages.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+                                    </select>
+                                </div>
+                                <div><label className="text-xs text-slate-400 mb-1 block">Категория</label>
+                                    <select value={form.category} onChange={e => setForm({...form, category: e.target.value})} className={inputCls}>
+                                        <option value="adult">Взрослый</option><option value="child">Ребёнок</option><option value="infant">Младенец</option>
+                                    </select>
+                                </div>
+                                <div><label className="text-xs text-slate-400 mb-1 block">Порт посадки</label><input value={form.embarkationPort} onChange={e => setForm({...form, embarkationPort: e.target.value})} className={inputCls} /></div>
+                                <div><label className="text-xs text-slate-400 mb-1 block">Порт высадки</label><input value={form.disembarkationPort} onChange={e => setForm({...form, disembarkationPort: e.target.value})} className={inputCls} /></div>
+                            </div>
+                            <div><label className="text-xs text-slate-400 mb-1 block">Примечания</label><textarea value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} rows={2} className={inputCls + " resize-none"} /></div>
+                            <button type="submit" className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-medium transition-all">Сохранить</button>
+                        </form>
+                    )}
+
+                    <div className="space-y-2">
+                        {filtered.length === 0 ? (
+                            <div className="text-center py-12 text-slate-500"><div className="text-4xl mb-3">👥</div><p>{passengers.length === 0 ? 'Список пассажиров пуст' : 'Ничего не найдено'}</p></div>
+                        ) : filtered.map(p => (
+                            <div key={p.id} className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4 hover:border-blue-500/20 transition-all">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-full flex items-center justify-center text-sm font-bold">{p.lastName[0]}{p.firstName[0]}</div>
+                                        <div>
+                                            <div className="font-medium text-white">{p.lastName} {p.firstName} {p.middleName}</div>
+                                            <div className="text-xs text-slate-400 flex flex-wrap gap-2">
+                                                <span>🎫 {p.ticketNumber}</span><span>🚪 Каютa {p.cabinNumber || '—'}</span><span>📄 {p.documentNumber}</span>
+                                                {p.voyageId && <span>🚢 {getVoyageName(p.voyageId)}</span>}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className={`text-xs px-2 py-1 rounded-full ${p.category === 'adult' ? 'bg-blue-500/20 text-blue-300' : p.category === 'child' ? 'bg-green-500/20 text-green-300' : 'bg-purple-500/20 text-purple-300'}`}>
+                                            {p.category === 'adult' ? 'Взрослый' : p.category === 'child' ? 'Ребёнок' : 'Младенец'}
+                                        </span>
+                                        <button onClick={() => handleDelete(p.id)} className="p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-all">🗑️</button>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        }
+
+        // ===== VOYAGES =====
+        function Voyages({ onChange }) {
+            const [voyages, setVoyages] = useState(getVoyages());
+            const [showForm, setShowForm] = useState(false);
+            const [routeInput, setRouteInput] = useState('');
+            const [form, setForm] = useState({ name: '', startDate: '', endDate: '', departurePort: '', arrivalPort: '', shipName: '', status: 'planned', route: [], notes: '' });
+            const passengers = getPassengers();
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                saveVoyage(form);
+                setVoyages(getVoyages());
+                setForm({ name: '', startDate: '', endDate: '', departurePort: '', arrivalPort: '', shipName: '', status: 'planned', route: [], notes: '' });
+                setShowForm(false);
+                onChange();
+            };
+            const handleDelete = (id) => { if (confirm('Удалить рейс?')) { deleteVoyage(id); setVoyages(getVoyages()); onChange(); } };
+            const toggleStatus = (v) => {
+                const statuses = ['planned', 'active', 'completed', 'cancelled'];
+                const next = statuses[(statuses.indexOf(v.status) + 1) % statuses.length];
+                updateVoyage(v.id, { status: next });
+                setVoyages(getVoyages());
+                onChange();
+            };
+            const addRoutePoint = () => { if (routeInput.trim()) { setForm({...form, route: [...form.route, routeInput.trim()]}); setRouteInput(''); } };
+            const removeRoutePoint = (i) => { setForm({...form, route: form.route.filter((_, idx) => idx !== i)}); };
+            const getPassengerCount = (vid) => passengers.filter(p => p.voyageId === vid).length;
+            const statusLabels = { planned: { label: 'Запланирован', color: 'bg-yellow-500/20 text-yellow-300' }, active: { label: 'Активный', color: 'bg-emerald-500/20 text-emerald-300' }, completed: { label: 'Завершён', color: 'bg-blue-500/20 text-blue-300' }, cancelled: { label: 'Отменён', color: 'bg-red-500/20 text-red-300' } };
+            const inputCls = "w-full bg-slate-900/50 border border-slate-700/50 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500/50";
+
+            return (
+                <div className="space-y-4 fade-in">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <h2 className="text-xl font-bold text-white">🚢 Рейсы <span className="text-sm font-normal text-slate-400">({voyages.length})</span></h2>
+                        <button onClick={() => setShowForm(!showForm)} className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-medium transition-all shadow-lg shadow-blue-500/20">{showForm ? '✕ Отмена' : '+ Новый рейс'}</button>
+                    </div>
+
+                    {showForm && (
+                        <form onSubmit={handleSubmit} className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-5 space-y-4">
+                            <h3 className="text-lg font-semibold text-white">Новый рейс</h3>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                <div><label className="text-xs text-slate-400 mb-1 block">Название рейса *</label><input required value={form.name} onChange={e => setForm({...form, name: e.target.value})} className={inputCls} /></div>
+                                <div><label className="text-xs text-slate-400 mb-1 block">Судно</label><input value={form.shipName} onChange={e => setForm({...form, shipName: e.target.value})} className={inputCls} /></div>
+                                <div><label className="text-xs text-slate-400 mb-1 block">Статус</label>
+                                    <select value={form.status} onChange={e => setForm({...form, status: e.target.value})} className={inputCls}>
+                                        <option value="planned">Запланирован</option><option value="active">Активный</option><option value="completed">Завершён</option><option value="cancelled">Отменён</option>
+                                    </select>
+                                </div>
+                                <div><label className="text-xs text-slate-400 mb-1 block">Дата отправления *</label><input type="date" required value={form.startDate} onChange={e => setForm({...form, startDate: e.target.value})} className={inputCls} /></div>
+                                <div><label className="text-xs text-slate-400 mb-1 block">Дата прибытия</label><input type="date" value={form.endDate} onChange={e => setForm({...form, endDate: e.target.value})} className={inputCls} /></div>
+                                <div><label className="text-xs text-slate-400 mb-1 block">Порт отправления *</label><input required value={form.departurePort} onChange={e => setForm({...form, departurePort: e.target.value})} className={inputCls} /></div>
+                                <div><label className="text-xs text-slate-400 mb-1 block">Порт прибытия *</label><input required value={form.arrivalPort} onChange={e => setForm({...form, arrivalPort: e.target.value})} className={inputCls} /></div>
+                            </div>
+                            <div>
+                                <label className="text-xs text-slate-400 mb-1 block">Маршрут (порты захода)</label>
+                                <div className="flex gap-2 mb-2">
+                                    <input value={routeInput} onChange={e => setRouteInput(e.target.value)} placeholder="Добавить порт..." className={inputCls + " flex-1"} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addRoutePoint(); } }} />
+                                    <button type="button" onClick={addRoutePoint} className="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm">+</button>
+                                </div>
+                                {form.route.length > 0 && (
+                                    <div className="flex flex-wrap gap-2">
+                                        {form.route.map((point, i) => (
+                                            <span key={i} className="flex items-center gap-1 bg-blue-500/20 text-blue-300 text-xs px-2 py-1 rounded-full">
+                                                {point}<button type="button" onClick={() => removeRoutePoint(i)} className="text-blue-400 hover:text-red-400">×</button>
+                                            </span>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                            <div><label className="text-xs text-slate-400 mb-1 block">Примечания</label><textarea value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} rows={2} className={inputCls + " resize-none"} /></div>
+                            <button type="submit" className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-medium transition-all">Сохранить</button>
+                        </form>
+                    )}
+
+                    <div className="space-y-3">
+                        {voyages.length === 0 ? (
+                            <div className="text-center py-12 text-slate-500"><div className="text-4xl mb-3">🚢</div><p>Нет рейсов. Создайте первый рейс.</p></div>
+                        ) : voyages.map(v => (
+                            <div key={v.id} className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-5 hover:border-blue-500/20 transition-all">
+                                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                                    <div className="flex-1">
+                                        <div className="flex items-center gap-3 mb-2">
+                                            <h3 className="text-lg font-semibold text-white">{v.name}</h3>
+                                            <span className={`text-xs px-2 py-1 rounded-full cursor-pointer ${statusLabels[v.status].color}`} onClick={() => toggleStatus(v)} title="Нажмите для смены статуса">{statusLabels[v.status].label}</span>
+                                        </div>
+                                        <div className="text-sm text-slate-400 space-y-1">
+                                            <div className="flex flex-wrap gap-4">
+                                                <span>📅 {v.startDate ? new Date(v.startDate).toLocaleDateString('ru-RU') : '—'} {v.endDate ? `— ${new Date(v.endDate).toLocaleDateString('ru-RU')}` : ''}</span>
+                                                {v.shipName && <span>🚢 {v.shipName}</span>}
+                                                <span>👥 {getPassengerCount(v.id)} пасс.</span>
+                                            </div>
+                                            <div className="flex items-center gap-2 text-blue-300">
+                                                <span className="font-medium">{v.departurePort}</span>
+                                                {v.route.length > 0 && (<><span>→</span>{v.route.map((r, i) => (<span key={i} className="flex items-center gap-1"><span className="text-slate-500">{r}</span>{i < v.route.length - 1 && <span>→</span>}</span>))}<span>→</span></>)}
+                                                <span className="font-medium">{v.arrivalPort}</span>
+                                            </div>
+                                            {v.notes && <p className="text-xs text-slate-500 mt-1">{v.notes}</p>}
+                                        </div>
+                                    </div>
+                                    <button onClick={() => handleDelete(v.id)} className="p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-all self-start">🗑️</button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        }
+
+        // ===== PORT CALLS =====
+        function PortCalls({ onChange }) {
+            const [portCalls, setPortCalls] = useState(getPortCalls());
+            const [showForm, setShowForm] = useState(false);
+            const [form, setForm] = useState({ voyageId: '', portName: '', country: '', arrivalDate: '', arrivalTime: '', departureDate: '', departureTime: '', berthNumber: '', passengersOnboard: 0, passengersDisembarked: 0, passengersEmbarked: 0, cargoOperations: '', notes: '' });
+            const voyages = getVoyages();
+            const inputCls = "w-full bg-slate-900/50 border border-slate-700/50 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500/50";
+
+            const handleSubmit = (e) => { e.preventDefault(); savePortCall(form); setPortCalls(getPortCalls()); setForm({ voyageId: '', portName: '', country: '', arrivalDate: '', arrivalTime: '', departureDate: '', departureTime: '', berthNumber: '', passengersOnboard: 0, passengersDisembarked: 0, passengersEmbarked: 0, cargoOperations: '', notes: '' }); setShowForm(false); onChange(); };
+            const handleDelete = (id) => { if (confirm('Удалить запись?')) { deletePortCall(id); setPortCalls(getPortCalls()); onChange(); } };
+            const getVoyageName = (id) => { const v = voyages.find(v => v.id === id); return v ? v.name : '—'; };
+
+            return (
+                <div className="space-y-4 fade-in">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <h2 className="text-xl font-bold text-white">🏗️ Заходы в порты <span className="text-sm font-normal text-slate-400">({portCalls.length})</span></h2>
+                        <button onClick={() => setShowForm(!showForm)} className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-medium transition-all shadow-lg shadow-blue-500/20">{showForm ? '✕ Отмена' : '+ Добавить заход'}</button>
+                    </div>
+
+                    {showForm && (
+                        <form onSubmit={handleSubmit} className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-5 space-y-4">
+                            <h3 className="text-lg font-semibold text-white">Заход в порт</h3>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                <div><label className="text-xs text-slate-400 mb-1 block">Рейс</label>
+                                    <select value={form.voyageId} onChange={e => setForm({...form, voyageId: e.target.value})} className={inputCls}>
+                                        <option value="">Не привязан</option>{voyages.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+                                    </select>
+                                </div>
+                                <div><label className="text-xs text-slate-400 mb-1 block">Порт *</label><input required value={form.portName} onChange={e => setForm({...form, portName: e.target.value})} className={inputCls} /></div>
+                                <div><label className="text-xs text-slate-400 mb-1 block">Страна</label><input value={form.country} onChange={e => setForm({...form, country: e.target.value})} className={inputCls} /></div>
+                                <div><label className="text-xs text-slate-400 mb-1 block">Дата прибытия</label><input type="date" value={form.arrivalDate} onChange={e => setForm({...form, arrivalDate: e.target.value})} className={inputCls} /></div>
+                                <div><label className="text-xs text-slate-400 mb-1 block">Время прибытия</label><input type="time" value={form.arrivalTime} onChange={e => setForm({...form, arrivalTime: e.target.value})} className={inputCls} /></div>
+                                <div><label className="text-xs text-slate-400 mb-1 block">Дата отбытия</label><input type="date" value={form.departureDate} onChange={e => setForm({...form, departureDate: e.target.value})} className={inputCls} /></div>
+                                <div><label className="text-xs text-slate-400 mb-1 block">Время отбытия</label><input type="time" value={form.departureTime} onChange={e => setForm({...form, departureTime: e.target.value})} className={inputCls} /></div>
+                                <div><label className="text-xs text-slate-400 mb-1 block">Номер причала</label><input value={form.berthNumber} onChange={e => setForm({...form, berthNumber: e.target.value})} className={inputCls} /></div>
+                                <div><label className="text-xs text-slate-400 mb-1 block">Пассажиров на борту</label><input type="number" value={form.passengersOnboard} onChange={e => setForm({...form, passengersOnboard: +e.target.value})} className={inputCls} /></div>
+                                <div><label className="text-xs text-slate-400 mb-1 block">Высажено</label><input type="number" value={form.passengersDisembarked} onChange={e => setForm({...form, passengersDisembarked: +e.target.value})} className={inputCls} /></div>
+                                <div><label className="text-xs text-slate-400 mb-1 block">Посажено</label><input type="number" value={form.passengersEmbarked} onChange={e => setForm({...form, passengersEmbarked: +e.target.value})} className={inputCls} /></div>
+                            </div>
+                            <div><label className="text-xs text-slate-400 mb-1 block">Грузовые операции</label><textarea value={form.cargoOperations} onChange={e => setForm({...form, cargoOperations: e.target.value})} rows={2} className={inputCls + " resize-none"} /></div>
+                            <div><label className="text-xs text-slate-400 mb-1 block">Примечания</label><textarea value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} rows={2} className={inputCls + " resize-none"} /></div>
+                            <button type="submit" className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-medium transition-all">Сохранить</button>
+                        </form>
+                    )}
+
+                    <div className="space-y-3">
+                        {portCalls.length === 0 ? (
+                            <div className="text-center py-12 text-slate-500"><div className="text-4xl mb-3">🏗️</div><p>Нет записей о заходах в порты.</p></div>
+                        ) : portCalls.map(pc => (
+                            <div key={pc.id} className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-5 hover:border-blue-500/20 transition-all">
+                                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                                    <div className="flex-1">
+                                        <div className="flex items-center gap-3 mb-2"><h3 className="text-lg font-semibold text-white">🏗️ {pc.portName}</h3>{pc.country && <span className="text-sm text-slate-400">{pc.country}</span>}</div>
+                                        <div className="text-sm text-slate-400 space-y-1">
+                                            <div className="flex flex-wrap gap-4">
+                                                {pc.arrivalDate && <span>⬇️ Прибытие: {new Date(pc.arrivalDate).toLocaleDateString('ru-RU')} {pc.arrivalTime}</span>}
+                                                {pc.departureDate && <span>⬆️ Отбытие: {new Date(pc.departureDate).toLocaleDateString('ru-RU')} {pc.departureTime}</span>}
+                                            </div>
+                                            <div className="flex flex-wrap gap-4">
+                                                {pc.berthNumber && <span>📍 Причал: {pc.berthNumber}</span>}
+                                                {pc.voyageId && <span>🚢 {getVoyageName(pc.voyageId)}</span>}
+                                            </div>
+                                            <div className="flex flex-wrap gap-4 mt-2">
+                                                <span className="text-blue-300">На борту: {pc.passengersOnboard}</span>
+                                                <span className="text-red-300">Высажено: {pc.passengersDisembarked}</span>
+                                                <span className="text-emerald-300">Посажено: {pc.passengersEmbarked}</span>
+                                            </div>
+                                            {pc.cargoOperations && <p className="text-xs text-slate-500 mt-1">📦 {pc.cargoOperations}</p>}
+                                            {pc.notes && <p className="text-xs text-slate-500 mt-1">{pc.notes}</p>}
+                                        </div>
+                                    </div>
+                                    <button onClick={() => handleDelete(pc.id)} className="p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-all self-start">🗑️</button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        }
+
+        // ===== FUEL =====
+        function Fuel({ onChange }) {
+            const [records, setRecords] = useState(getFuelRecords());
+            const [showForm, setShowForm] = useState(false);
+            const [form, setForm] = useState({ voyageId: '', date: '', fuelType: 'diesel', quantityLiters: 0, portName: '', supplier: '', costPerLiter: 0, totalCost: 0, tankLevelBefore: 0, tankLevelAfter: 0, consumption: 0, notes: '' });
+            const voyages = getVoyages();
+            const totalFuel = records.reduce((s, r) => s + r.quantityLiters, 0);
+            const totalCost = records.reduce((s, r) => s + r.totalCost, 0);
+            const inputCls = "w-full bg-slate-900/50 border border-slate-700/50 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500/50";
+            const fuelTypeLabels = { diesel: 'Дизельное', heavy: 'Тяжёлое', gas: 'Газ' };
+
+            const handleSubmit = (e) => { e.preventDefault(); saveFuelRecord({ ...form, totalCost: form.quantityLiters * form.costPerLiter }); setRecords(getFuelRecords()); setForm({ voyageId: '', date: '', fuelType: 'diesel', quantityLiters: 0, portName: '', supplier: '', costPerLiter: 0, totalCost: 0, tankLevelBefore: 0, tankLevelAfter: 0, consumption: 0, notes: '' }); setShowForm(false); onChange(); };
+            const handleDelete = (id) => { if (confirm('Удалить запись?')) { deleteFuelRecord(id); setRecords(getFuelRecords()); onChange(); } };
+
+            return (
+                <div className="space-y-4 fade-in">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <h2 className="text-xl font-bold text-white">⛽ Топливо <span className="text-sm font-normal text-slate-400">({records.length})</span></h2>
+                        <button onClick={() => setShowForm(!showForm)} className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-medium transition-all shadow-lg shadow-blue-500/20">{showForm ? '✕ Отмена' : '+ Добавить запись'}</button>
+                    </div>
+
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4"><div className="text-2xl font-bold text-white">{totalFuel.toLocaleString('ru-RU')}</div><div className="text-xs text-slate-400">Всего литров</div></div>
+                        <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4"><div className="text-2xl font-bold text-emerald-400">{totalCost.toLocaleString('ru-RU')} ₽</div><div className="text-xs text-slate-400">Общая стоимость</div></div>
+                        <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4"><div className="text-2xl font-bold text-blue-400">{records.length}</div><div className="text-xs text-slate-400">Заправок</div></div>
+                        <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4"><div className="text-2xl font-bold text-purple-400">{records.length > 0 ? Math.round(totalFuel / records.length).toLocaleString('ru-RU') : 0}</div><div className="text-xs text-slate-400">Среднее (л/заправка)</div></div>
+                    </div>
+
+                    {showForm && (
+                        <form onSubmit={handleSubmit} className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-5 space-y-4">
+                            <h3 className="text-lg font-semibold text-white">Запись о топливе</h3>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                <div><label className="text-xs text-slate-400 mb-1 block">Рейс</label>
+                                    <select value={form.voyageId} onChange={e => setForm({...form, voyageId: e.target.value})} className={inputCls}>
+                                        <option value="">Не привязан</option>{voyages.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+                                    </select>
+                                </div>
+                                <div><label className="text-xs text-slate-400 mb-1 block">Дата *</label><input type="date" required value={form.date} onChange={e => setForm({...form, date: e.target.value})} className={inputCls} /></div>
+                                <div><label className="text-xs text-slate-400 mb-1 block">Тип топлива</label>
+                                    <select value={form.fuelType} onChange={e => setForm({...form, fuelType: e.target.value})} className={inputCls}>
+                                        <option value="diesel">Дизельное</option><option value="heavy">Тяжёлое</option><option value="gas">Газ</option>
+                                    </select>
+                                </div>
+                                <div><label className="text-xs text-slate-400 mb-1 block">Количество (литры) *</label><input type="number" required value={form.quantityLiters} onChange={e => setForm({...form, quantityLiters: +e.target.value})} className={inputCls} /></div>
+                                <div><label className="text-xs text-slate-400 mb-1 block">Цена за литр (₽)</label><input type="number" step="0.01" value={form.costPerLiter} onChange={e => setForm({...form, costPerLiter: +e.target.value})} className={inputCls} /></div>
+                                <div><label className="text-xs text-slate-400 mb-1 block">Порт / Место</label><input value={form.portName} onChange={e => setForm({...form, portName: e.target.value})} className={inputCls} /></div>
+                                <div><label className="text-xs text-slate-400 mb-1 block">Поставщик</label><input value={form.supplier} onChange={e => setForm({...form, supplier: e.target.value})} className={inputCls} /></div>
+                                <div><label className="text-xs text-slate-400 mb-1 block">Уровень бака до (%)</label><input type="number" min="0" max="100" value={form.tankLevelBefore} onChange={e => setForm({...form, tankLevelBefore: +e.target.value})} className={inputCls} /></div>
+                                <div><label className="text-xs text-slate-400 mb-1 block">Уровень бака после (%)</label><input type="number" min="0" max="100" value={form.tankLevelAfter} onChange={e => setForm({...form, tankLevelAfter: +e.target.value})} className={inputCls} /></div>
+                                <div><label className="text-xs text-slate-400 mb-1 block">Расход (литры)</label><input type="number" value={form.consumption} onChange={e => setForm({...form, consumption: +e.target.value})} className={inputCls} /></div>
+                            </div>
+                            <div><label className="text-xs text-slate-400 mb-1 block">Примечания</label><textarea value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} rows={2} className={inputCls + " resize-none"} /></div>
+                            <button type="submit" className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-medium transition-all">Сохранить</button>
+                        </form>
+                    )}
+
+                    <div className="space-y-2">
+                        {records.length === 0 ? (
+                            <div className="text-center py-12 text-slate-500"><div className="text-4xl mb-3">⛽</div><p>Нет записей о топливе.</p></div>
+                        ) : records.map(r => (
+                            <div key={r.id} className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4 hover:border-blue-500/20 transition-all">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-orange-500 rounded-xl flex items-center justify-center text-lg">⛽</div>
+                                        <div>
+                                            <div className="font-medium text-white">{fuelTypeLabels[r.fuelType]} — {r.quantityLiters.toLocaleString('ru-RU')} л</div>
+                                            <div className="text-xs text-slate-400 flex flex-wrap gap-2">
+                                                <span>📅 {r.date ? new Date(r.date).toLocaleDateString('ru-RU') : '—'}</span>
+                                                {r.portName && <span>📍 {r.portName}</span>}
+                                                {r.supplier && <span>🏢 {r.supplier}</span>}
+                                                {r.totalCost > 0 && <span className="text-emerald-400">💰 {r.totalCost.toLocaleString('ru-RU')} ₽</span>}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <button onClick={() => handleDelete(r.id)} className="p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-all">🗑️</button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        }
+
+        // ===== DAILY REPORT =====
+        function DailyReportComp({ onChange }) {
+            const [reports, setReports] = useState(getDailyReports());
+            const [showForm, setShowForm] = useState(false);
+            const [form, setForm] = useState({ voyageId: '', date: new Date().toISOString().split('T')[0], time: new Date().toTimeString().slice(0, 5), position: { latitude: '', longitude: '' }, speed: 0, course: 0, windDirection: '', windForce: 0, seaState: 0, visibility: '', weather: '', temperature: 0, pressure: 0, passengersOnboard: 0, crewOnboard: 0, fuelRemaining: 0, distanceCovered: 0, engineHours: 0, notes: '' });
+            const voyages = getVoyages();
+            const inputCls = "w-full bg-slate-900/50 border border-slate-700/50 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500/50";
+            const seaStateLabels = ['Штиль', 'Рябь', 'Слабое', 'Умеренное', 'Крупное', 'Грубое', 'Очень крупное', 'Чрезмерное'];
+
+            const handleSubmit = (e) => { e.preventDefault(); saveDailyReport(form); setReports(getDailyReports()); setForm({ voyageId: '', date: new Date().toISOString().split('T')[0], time: new Date().toTimeString().slice(0, 5), position: { latitude: '', longitude: '' }, speed: 0, course: 0, windDirection: '', windForce: 0, seaState: 0, visibility: '', weather: '', temperature: 0, pressure: 0, passengersOnboard: 0, crewOnboard: 0, fuelRemaining: 0, distanceCovered: 0, engineHours: 0, notes: '' }); setShowForm(false); onChange(); };
+            const handleDelete = (id) => { if (confirm('Удалить донесение?')) { deleteDailyReport(id); setReports(getDailyReports()); onChange(); } };
+
+            return (
+                <div className="space-y-4 fade-in">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <h2 className="text-xl font-bold text-white">📋 Суточные донесения (DRR) <span className="text-sm font-normal text-slate-400">({reports.length})</span></h2>
+                        <button onClick={() => setShowForm(!showForm)} className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-medium transition-all shadow-lg shadow-blue-500/20">{showForm ? '✕ Отмена' : '+ Новое донесение'}</button>
+                    </div>
+
+                    {showForm && (
+                        <form onSubmit={handleSubmit} className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-5 space-y-4">
+                            <h3 className="text-lg font-semibold text-white">Суточное донесение</h3>
+                            <div className="border-b border-slate-700/50 pb-3 mb-3">
+                                <h4 className="text-sm font-medium text-blue-300 mb-3">🧭 Навигация</h4>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    <div><label className="text-xs text-slate-400 mb-1 block">Рейс</label>
+                                        <select value={form.voyageId} onChange={e => setForm({...form, voyageId: e.target.value})} className={inputCls}>
+                                            <option value="">Не привязан</option>{voyages.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+                                        </select>
+                                    </div>
+                                    <div><label className="text-xs text-slate-400 mb-1 block">Дата *</label><input type="date" required value={form.date} onChange={e => setForm({...form, date: e.target.value})} className={inputCls} /></div>
+                                    <div><label className="text-xs text-slate-400 mb-1 block">Время</label><input type="time" value={form.time} onChange={e => setForm({...form, time: e.target.value})} className={inputCls} /></div>
+                                    <div><label className="text-xs text-slate-400 mb-1 block">Широта</label><input value={form.position.latitude} onChange={e => setForm({...form, position: {...form.position, latitude: e.target.value}})} placeholder="напр. 68°58'N" className={inputCls} /></div>
+                                    <div><label className="text-xs text-slate-400 mb-1 block">Долгота</label><input value={form.position.longitude} onChange={e => setForm({...form, position: {...form.position, longitude: e.target.value}})} placeholder="напр. 33°05'E" className={inputCls} /></div>
+                                    <div><label className="text-xs text-slate-400 mb-1 block">Скорость (узлы)</label><input type="number" step="0.1" value={form.speed} onChange={e => setForm({...form, speed: +e.target.value})} className={inputCls} /></div>
+                                    <div><label className="text-xs text-slate-400 mb-1 block">Курс (°)</label><input type="number" min="0" max="360" value={form.course} onChange={e => setForm({...form, course: +e.target.value})} className={inputCls} /></div>
+                                    <div><label className="text-xs text-slate-400 mb-1 block">Пройдено (мили)</label><input type="number" step="0.1" value={form.distanceCovered} onChange={e => setForm({...form, distanceCovered: +e.target.value})} className={inputCls} /></div>
+                                    <div><label className="text-xs text-slate-400 mb-1 block">Моточасы</label><input type="number" step="0.1" value={form.engineHours} onChange={e => setForm({...form, engineHours: +e.target.value})} className={inputCls} /></div>
+                                </div>
+                            </div>
+                            <div className="border-b border-slate-700/50 pb-3 mb-3">
+                                <h4 className="text-sm font-medium text-blue-300 mb-3">🌤️ Метеоусловия</h4>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    <div><label className="text-xs text-slate-400 mb-1 block">Направление ветра</label><input value={form.windDirection} onChange={e => setForm({...form, windDirection: e.target.value})} placeholder="NW, S, NE" className={inputCls} /></div>
+                                    <div><label className="text-xs text-slate-400 mb-1 block">Сила ветра (баллы)</label><input type="number" min="0" max="12" value={form.windForce} onChange={e => setForm({...form, windForce: +e.target.value})} className={inputCls} /></div>
+                                    <div><label className="text-xs text-slate-400 mb-1 block">Волнение моря</label>
+                                        <select value={form.seaState} onChange={e => setForm({...form, seaState: +e.target.value})} className={inputCls}>
+                                            {seaStateLabels.map((l, i) => <option key={i} value={i}>{i} — {l}</option>)}
+                                        </select>
+                                    </div>
+                                    <div><label className="text-xs text-slate-400 mb-1 block">Видимость</label><input value={form.visibility} onChange={e => setForm({...form, visibility: e.target.value})} placeholder="10 миль" className={inputCls} /></div>
+                                    <div><label className="text-xs text-slate-400 mb-1 block">Погода</label><input value={form.weather} onChange={e => setForm({...form, weather: e.target.value})} placeholder="Облачно, дождь" className={inputCls} /></div>
+                                    <div><label className="text-xs text-slate-400 mb-1 block">Температура (°C)</label><input type="number" step="0.1" value={form.temperature} onChange={e => setForm({...form, temperature: +e.target.value})} className={inputCls} /></div>
+                                    <div><label className="text-xs text-slate-400 mb-1 block">Давление (мм рт.ст.)</label><input type="number" value={form.pressure} onChange={e => setForm({...form, pressure: +e.target.value})} className={inputCls} /></div>
+                                </div>
+                            </div>
+                            <div className="border-b border-slate-700/50 pb-3 mb-3">
+                                <h4 className="text-sm font-medium text-blue-300 mb-3">👥 Люди и топливо</h4>
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                    <div><label className="text-xs text-slate-400 mb-1 block">Пассажиров на борту</label><input type="number" value={form.passengersOnboard} onChange={e => setForm({...form, passengersOnboard: +e.target.value})} className={inputCls} /></div>
+                                    <div><label className="text-xs text-slate-400 mb-1 block">Экипаж на борту</label><input type="number" value={form.crewOnboard} onChange={e => setForm({...form, crewOnboard: +e.target.value})} className={inputCls} /></div>
+                                    <div><label className="text-xs text-slate-400 mb-1 block">Топливо остаток (л)</label><input type="number" value={form.fuelRemaining} onChange={e => setForm({...form, fuelRemaining: +e.target.value})} className={inputCls} /></div>
+                                </div>
+                            </div>
+                            <div><label className="text-xs text-slate-400 mb-1 block">Примечания</label><textarea value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} rows={3} className={inputCls + " resize-none"} /></div>
+                            <button type="submit" className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-medium transition-all">Сохранить</button>
+                        </form>
+                    )}
+
+                    <div className="space-y-3">
+                        {reports.length === 0 ? (
+                            <div className="text-center py-12 text-slate-500"><div className="text-4xl mb-3">📋</div><p>Нет суточных донесений.</p></div>
+                        ) : [...reports].sort((a, b) => new Date(b.date) - new Date(a.date)).map(r => (
+                            <div key={r.id} className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-5 hover:border-blue-500/20 transition-all">
+                                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                                    <div className="flex-1">
+                                        <h3 className="text-lg font-semibold text-white mb-2">📋 {r.date ? new Date(r.date).toLocaleDateString('ru-RU') : '—'} {r.time && `в ${r.time}`}</h3>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 text-sm text-slate-400">
+                                            {(r.position?.latitude || r.position?.longitude) && <span>📍 {r.position?.latitude} {r.position?.longitude}</span>}
+                                            {r.speed > 0 && <span>🏎️ {r.speed} уз</span>}
+                                            {r.course > 0 && <span>🧭 {r.course}°</span>}
+                                            {r.distanceCovered > 0 && <span>📏 {r.distanceCovered} миль</span>}
+                                            {r.windDirection && <span>💨 {r.windDirection} {r.windForce} б</span>}
+                                            {r.weather && <span>🌤️ {r.weather}</span>}
+                                            {r.temperature !== 0 && <span>🌡️ {r.temperature}°C</span>}
+                                            {r.pressure > 0 && <span>📊 {r.pressure} мм</span>}
+                                            <span>👥 {r.passengersOnboard} пасс / {r.crewOnboard} экипаж</span>
+                                            {r.fuelRemaining > 0 && <span>⛽ {r.fuelRemaining} л</span>}
+                                        </div>
+                                        {r.notes && <p className="text-xs text-slate-500 mt-2">{r.notes}</p>}
+                                    </div>
+                                    <button onClick={() => handleDelete(r.id)} className="p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-all self-start">🗑️</button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        }
+
+        // ===== SETTINGS =====
+        function Settings({ onChange }) {
+            const [shipInfo, setShipInfo] = useState(getShipInfo());
+            const [saved, setSaved] = useState(false);
+            const [importStatus, setImportStatus] = useState('idle');
+            const fileInputRef = useRef(null);
+            const inputCls = "w-full bg-slate-900/50 border border-slate-700/50 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500/50";
+
+            const handleSaveShip = (e) => { e.preventDefault(); saveShipInfo(shipInfo); setSaved(true); setTimeout(() => setSaved(false), 2000); onChange(); };
+            const handleExport = () => {
+                const data = exportAllData();
+                const blob = new Blob([data], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url; a.download = `voyage-log-backup-${new Date().toISOString().split('T')[0]}.json`;
+                a.click(); URL.revokeObjectURL(url);
+            };
+            const handleImport = (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    const success = importAllData(ev.target.result);
+                    setImportStatus(success ? 'success' : 'error');
+                    setTimeout(() => setImportStatus('idle'), 3000);
+                    if (success) onChange();
+                };
+                reader.readAsText(file);
+                if (fileInputRef.current) fileInputRef.current.value = '';
+            };
+            const handleClear = () => {
+                if (confirm('Вы уверены? Все данные будут удалены безвозвратно!')) {
+                    if (confirm('Это действие нельзя отменить. Продолжить?')) {
+                        clearAllData();
+                        setShipInfo({ name: '', imo: '', callSign: '', flag: '', type: '', length: 0, beam: 0, draft: 0, grossTonnage: 0, passengerCapacity: 0, crewCapacity: 0, enginePower: 0, yearBuilt: 0 });
+                        onChange();
+                    }
+                }
+            };
+
+            return (
+                <div className="space-y-6 fade-in">
+                    <h2 className="text-xl font-bold text-white">⚙️ Настройки</h2>
+                    <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-5">
+                        <h3 className="text-lg font-semibold text-white mb-4">🚢 Информация о судне</h3>
+                        <form onSubmit={handleSaveShip} className="space-y-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                <div><label className="text-xs text-slate-400 mb-1 block">Название судна</label><input value={shipInfo.name} onChange={e => setShipInfo({...shipInfo, name: e.target.value})} className={inputCls} /></div>
+                                <div><label className="text-xs text-slate-400 mb-1 block">IMO номер</label><input value={shipInfo.imo} onChange={e => setShipInfo({...shipInfo, imo: e.target.value})} className={inputCls} /></div>
+                                <div><label className="text-xs text-slate-400 mb-1 block">Позывной</label><input value={shipInfo.callSign} onChange={e => setShipInfo({...shipInfo, callSign: e.target.value})} className={inputCls} /></div>
+                                <div><label className="text-xs text-slate-400 mb-1 block">Флаг</label><input value={shipInfo.flag} onChange={e => setShipInfo({...shipInfo, flag: e.target.value})} className={inputCls} /></div>
+                                <div><label className="text-xs text-slate-400 mb-1 block">Тип судна</label><input value={shipInfo.type} onChange={e => setShipInfo({...shipInfo, type: e.target.value})} className={inputCls} /></div>
+                                <div><label className="text-xs text-slate-400 mb-1 block">Год постройки</label><input type="number" value={shipInfo.yearBuilt} onChange={e => setShipInfo({...shipInfo, yearBuilt: +e.target.value})} className={inputCls} /></div>
+                                <div><label className="text-xs text-slate-400 mb-1 block">Длина (м)</label><input type="number" step="0.1" value={shipInfo.length} onChange={e => setShipInfo({...shipInfo, length: +e.target.value})} className={inputCls} /></div>
+                                <div><label className="text-xs text-slate-400 mb-1 block">Ширина (м)</label><input type="number" step="0.1" value={shipInfo.beam} onChange={e => setShipInfo({...shipInfo, beam: +e.target.value})} className={inputCls} /></div>
+                                <div><label className="text-xs text-slate-400 mb-1 block">Осадка (м)</label><input type="number" step="0.1" value={shipInfo.draft} onChange={e => setShipInfo({...shipInfo, draft: +e.target.value})} className={inputCls} /></div>
+                                <div><label className="text-xs text-slate-400 mb-1 block">Валовая вместимость (GT)</label><input type="number" value={shipInfo.grossTonnage} onChange={e => setShipInfo({...shipInfo, grossTonnage: +e.target.value})} className={inputCls} /></div>
+                                <div><label className="text-xs text-slate-400 mb-1 block">Вместимость пассажиров</label><input type="number" value={shipInfo.passengerCapacity} onChange={e => setShipInfo({...shipInfo, passengerCapacity: +e.target.value})} className={inputCls} /></div>
+                                <div><label className="text-xs text-slate-400 mb-1 block">Вместимость экипажа</label><input type="number" value={shipInfo.crewCapacity} onChange={e => setShipInfo({...shipInfo, crewCapacity: +e.target.value})} className={inputCls} /></div>
+                                <div><label className="text-xs text-slate-400 mb-1 block">Мощность двигателя (л.с.)</label><input type="number" value={shipInfo.enginePower} onChange={e => setShipInfo({...shipInfo, enginePower: +e.target.value})} className={inputCls} /></div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <button type="submit" className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-medium transition-all">💾 Сохранить</button>
+                                {saved && <span className="text-emerald-400 text-sm">✓ Сохранено!</span>}
+                            </div>
+                        </form>
+                    </div>
+
+                    <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-5">
+                        <h3 className="text-lg font-semibold text-white mb-4">💾 Управление данными</h3>
+                        <div className="flex flex-wrap gap-3">
+                            <button onClick={handleExport} className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-medium transition-all">📤 Экспорт (JSON)</button>
+                            <label className="px-4 py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-sm font-medium transition-all cursor-pointer">
+                                📥 Импорт (JSON)<input ref={fileInputRef} type="file" accept=".json" onChange={handleImport} className="hidden" />
+                            </label>
+                            <button onClick={handleClear} className="px-4 py-2.5 bg-red-600 hover:bg-red-500 text-white rounded-xl text-sm font-medium transition-all">🗑️ Очистить всё</button>
+                        </div>
+                        {importStatus === 'success' && <p className="text-emerald-400 text-sm mt-3">✓ Данные успешно импортированы!</p>}
+                        {importStatus === 'error' && <p className="text-red-400 text-sm mt-3">✕ Ошибка при импорте данных.</p>}
+                    </div>
+
+                    <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-5">
+                        <h3 className="text-lg font-semibold text-white mb-4">ℹ️ О приложении</h3>
+                        <div className="text-sm text-slate-400 space-y-2">
+                            <p><strong className="text-white">Судовой журнал</strong> — Progressive Web App для учёта пассажиров, рейсов, заходов в порты, топлива и суточных донесений.</p>
+                            <p>Версия: 5.4.1</p>
+                            <p>Все данные хранятся локально в вашем браузере (localStorage).</p>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // ===== MAIN APP =====
+        function App() {
+            const [activeTab, setActiveTab] = useState('dashboard');
+            const [refreshKey, setRefreshKey] = useState(0);
+            const refresh = () => setRefreshKey(k => k + 1);
+
+            const navItems = [
+                { key: 'dashboard', label: 'Панель', icon: '⚓' },
+                { key: 'passengers', label: 'Пассажиры', icon: '👥' },
+                { key: 'voyages', label: 'Рейсы', icon: '🚢' },
+                { key: 'portcalls', label: 'Заходы', icon: '🏗️' },
+                { key: 'fuel', label: 'Топливо', icon: '⛽' },
+                { key: 'daily', label: 'Суточный', icon: '📋' },
+                { key: 'settings', label: 'Настройки', icon: '⚙️' },
+            ];
+
+            const renderContent = () => {
+                switch (activeTab) {
+                    case 'dashboard': return <Dashboard key={refreshKey} />;
+                    case 'passengers': return <Passengers key={refreshKey} onChange={refresh} />;
+                    case 'voyages': return <Voyages key={refreshKey} onChange={refresh} />;
+                    case 'portcalls': return <PortCalls key={refreshKey} onChange={refresh} />;
+                    case 'fuel': return <Fuel key={refreshKey} onChange={refresh} />;
+                    case 'daily': return <DailyReportComp key={refreshKey} onChange={refresh} />;
+                    case 'settings': return <Settings key={refreshKey} onChange={refresh} />;
+                    default: return <Dashboard key={refreshKey} />;
+                }
+            };
+
+            return (
+                <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 text-white">
+                    <header className="bg-slate-900/80 backdrop-blur-md border-b border-blue-800/30 sticky top-0 z-50">
+                        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-xl flex items-center justify-center text-xl shadow-lg shadow-blue-500/20">⚓</div>
+                                <div>
+                                    <h1 className="text-lg font-bold bg-gradient-to-r from-blue-300 to-cyan-300 bg-clip-text text-transparent">Судовой журнал</h1>
+                                    <p className="text-xs text-slate-400">Voyage Passenger Log</p>
+                                </div>
+                            </div>
+                            <div className="hidden md:flex items-center gap-2 text-sm text-slate-400">
+                                <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></span>
+                                {new Date().toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                            </div>
+                        </div>
+                    </header>
+
+                    <div className="max-w-7xl mx-auto flex flex-col md:flex-row">
+                        <nav className="md:w-56 md:min-h-[calc(100vh-64px)] bg-slate-900/50 md:border-r border-blue-800/20 p-2 md:sticky md:top-16 md:self-start">
+                            <div className="flex md:flex-col gap-1 overflow-x-auto md:overflow-x-visible pb-2 md:pb-0">
+                                {navItems.map(item => (
+                                    <button key={item.key} onClick={() => setActiveTab(item.key)}
+                                        className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all whitespace-nowrap ${activeTab === item.key ? 'bg-blue-600/30 text-blue-200 shadow-lg shadow-blue-500/10 border border-blue-500/20' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}>
+                                        <span className="text-lg">{item.icon}</span><span>{item.label}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        </nav>
+                        <main className="flex-1 p-4 md:p-6 min-h-[calc(100vh-64px)]">{renderContent()}</main>
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+</body>
+</html>
