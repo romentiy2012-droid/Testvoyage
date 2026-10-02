@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Судовой журнал</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:linear-gradient(135deg,#0f172a,#1e3a5f,#0f172a);color:#fff;min-height:100vh}
+.header{background:rgba(15,23,42,.9);backdrop-filter:blur(10px);border-bottom:1px solid rgba(59,130,246,.2);padding:12px 20px;position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:12px}
+.logo{width:40px;height:40px;background:linear-gradient(135deg,#3b82f6,#22d3ee);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px}
+.header h1{font-size:18px;background:linear-gradient(to right,#93c5fd,#67e8f9);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.header p{font-size:11px;color:#94a3b8}
+.layout{max-width:1200px;margin:0 auto;display:flex;flex-direction:column}
+@media(min-width:768px){.layout{flex-direction:row}}
+nav{padding:8px;display:flex;gap:4px;overflow-x:auto}
+@media(min-width:768px){nav{width:200px;flex-direction:column;border-right:1px solid rgba(59,130,246,.1);min-height:calc(100vh - 64px);position:sticky;top:64px}}
+nav button{display:flex;align-items:center;gap:10px;padding:10px 16px;border:none;background:none;color:#94a3b8;border-radius:12px;cursor:pointer;font-size:14px;white-space:nowrap;transition:.2s}
+nav button:hover{color:#fff;background:rgba(30,41,59,.5)}
+nav button.active{background:rgba(59,130,246,.2);color:#93c5fd;border:1px solid rgba(59,130,246,.2)}
+main{flex:1;padding:20px;min-height:calc(100vh - 64px)}
+.card{background:rgba(30,41,59,.5);border:1px solid rgba(51,65,85,.5);border-radius:16px;padding:20px;margin-bottom:16px;transition:.2s}
+.card:hover{border-color:rgba(59,130,246,.2)}
+.stats{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:16px}
+@media(min-width:1024px){.stats{grid-template-columns:repeat(4,1fr)}}
+.stat-card{background:rgba(30,41,59,.5);border:1px solid rgba(51,65,85,.5);border-radius:16px;padding:16px;display:flex;align-items:center;gap:12px}
+.stat-icon{width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px}
+.stat-value{font-size:24px;font-weight:bold}
+.stat-label{font-size:12px;color:#94a3b8}
+.btn{padding:8px 16px;border:none;border-radius:12px;cursor:pointer;font-size:14px;font-weight:500;transition:.2s}
+.btn-primary{background:#2563eb;color:#fff}.btn-primary:hover{background:#3b82f6}
+.btn-success{background:#059669;color:#fff}.btn-success:hover{background:#10b981}
+.btn-danger{background:#dc2626;color:#fff}.btn-danger:hover{background:#ef4444}
+.btn-purple{background:#7c3aed;color:#fff}.btn-purple:hover{background:#8b5cf6}
+.btn-sm{padding:6px 12px;font-size:12px}
+input,select,textarea{width:100%;background:rgba(15,23,42,.5);border:1px solid rgba(51,65,85,.5);border-radius:8px;padding:8px 12px;color:#fff;font-size:14px;outline:none;transition:.2s}
+input:focus,select:focus,textarea:focus{border-color:rgba(59,130,246,.5)}
+label{display:block;font-size:12px;color:#94a3b8;margin-bottom:4px}
+.form-grid{display:grid;grid-template-columns:1fr;gap:12px;margin-bottom:16px}
+@media(min-width:640px){.form-grid{grid-template-columns:repeat(2,1fr)}}
+@media(min-width:1024px){.form-grid{grid-template-columns:repeat(3,1fr)}}
+.form-group{margin-bottom:0}
+.list-item{background:rgba(30,41,59,.5);border:1px solid rgba(51,65,85,.5);border-radius:12px;padding:16px;margin-bottom:8px;display:flex;align-items:center;gap:12px;transition:.2s}
+.list-item:hover{border-color:rgba(59,130,246,.2)}
+.avatar{width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#3b82f6,#22d3ee);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:bold;flex-shrink:0}
+.badge{font-size:11px;padding:2px 8px;border-radius:99px;display:inline-block}
+.badge-blue{background:rgba(59,130,246,.2);color:#93c5fd}
+.badge-green{background:rgba(16,185,129,.2);color:#6ee7b7}
+.badge-yellow{background:rgba(234,179,8,.2);color:#fde047}
+.badge-red{background:rgba(239,68,68,.2);color:#fca5a5}
+.badge-purple{background:rgba(139,92,246,.2);color:#c4b5fd}
+.empty{text-align:center;padding:48px 20px;color:#64748b}
+.empty-icon{font-size:48px;margin-bottom:12px}
+.search-bar{display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+.search-bar input,.search-bar select{flex:1;min-width:200px}
+.section-title{font-size:20px;font-weight:bold;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.section-title span{font-size:14px;font-weight:normal;color:#94a3b8}
+.flex-between{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:16px}
+.info-row{display:flex;justify-content:space-between;padding:4px 0;font-size:14px}
+.info-row .label{color:#94a3b8}
+.info-row .value{font-weight:500}
+.text-green{color:#10b981}
+.text-blue{color:#60a5fa}
+.text-red{color:#f87171}
+.text-sm{font-size:12px;color:#94a3b8}
+.mt-2{margin-top:8px}
+.mb-4{margin-bottom:16px}
+.hidden{display:none}
+</style>
+</head>
+<body>
+<div class="header">
+<div class="logo">⚓</div>
+<div>
+<h1>Судовой журнал</h1>
+<p>Voyage Passenger Log</p>
+</div>
+</div>
+<div class="layout">
+<nav id="nav"></nav>
+<main id="content"></main>
+</div>
+
+<script>
+// ===== STORE =====
+const KEYS={passengers:'vl_p',voyages:'vl_v',portCalls:'vl_pc',fuel:'vl_f',daily:'vl_d',ship:'vl_s'};
+const gid=()=>Date.now().toString(36)+Math.random().toString(36).substr(2);
+const get=k=>{try{return JSON.parse(localStorage.getItem(k))||[]}catch{return[]}};
+const set=(k,v)=>localStorage.setItem(k,JSON.stringify(v));
+const getShip=()=>{try{return JSON.parse(localStorage.getItem(KEYS.ship))||{}}catch{return{}}};
+const setShip=v=>localStorage.setItem(KEYS.ship,JSON.stringify(v));
+
+// ===== TABS =====
+const tabs=[
+{id:'dashboard',label:'Панель',icon:'⚓'},
+{id:'passengers',label:'Пассажиры',icon:'👥'},
+{id:'voyages',label:'Рейсы',icon:'🚢'},
+{id:'portcalls',label:'Заходы',icon:'🏗️'},
+{id:'fuel',label:'Топливо',icon:'⛽'},
+{id:'daily',label:'Суточный',icon:'📋'},
+{id:'settings',label:'Настройки',icon:'⚙️'},
+];
+let currentTab='dashboard';
+
+function renderNav(){
+const nav=document.getElementById('nav');
+nav.innerHTML=tabs.map(t=>`<button class="${t.id===currentTab?'active':''}" onclick="switchTab('${t.id}')">${t.icon} ${t.label}</button>`).join('');
+}
+function switchTab(id){currentTab=id;renderNav();renderContent();}
+
+// ===== RENDER =====
+function renderContent(){
+const c=document.getElementById('content');
+switch(currentTab){
+case 'dashboard':c.innerHTML=renderDashboard();break;
+case 'passengers':c.innerHTML=renderPassengers();initPassengers();break;
+case 'voyages':c.innerHTML=renderVoyages();initVoyages();break;
+case 'portcalls':c.innerHTML=renderPortCalls();initPortCalls();break;
+case 'fuel':c.innerHTML=renderFuel();initFuel();break;
+case 'daily':c.innerHTML=renderDaily();initDaily();break;
+case 'settings':c.innerHTML=renderSettings();initSettings();break;
+}
+}
+
+// ===== DASHBOARD =====
+function renderDashboard(){
+const p=get(KEYS.passengers),v=get(KEYS.voyages),pc=get(KEYS.portCalls),f=get(KEYS.fuel),d=get(KEYS.daily),s=getShip();
+const av=v.find(x=>x.status==='active');
+const tf=f.reduce((a,b)=>a+(+b.quantityLiters||0),0);
+const tc=f.reduce((a,b)=>a+(+b.totalCost||0),0);
+return `
+<div class="card" style="background:linear-gradient(to right,rgba(37,99,235,.15),rgba(6,182,212,.15))">
+<div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px">
+<div><h2 style="font-size:24px;font-weight:bold;margin-bottom:4px">${s.name||'Судовой журнал'}</h2>
+<p style="color:#cbd5e1">${av?'Активный рейс: '+av.name+' ('+av.departurePort+' → '+av.arrivalPort+')':'Нет активного рейса'}</p></div>
+${s.imo?'<div style="text-align:right;font-size:13px;color:#94a3b8"><div>IMO: '+s.imo+'</div><div>Позывной: '+s.callSign+'</div><div>Флаг: '+s.flag+'</div></div>':''}
+</div></div>
+<div class="stats">
+<div class="stat-card"><div class="stat-icon" style="background:linear-gradient(135deg,#3b82f6,#2563eb)">👥</div><div><div class="stat-value">${p.length}</div><div class="stat-label">Пассажиры</div></div></div>
+<div class="stat-card"><div class="stat-icon" style="background:linear-gradient(135deg,#06b6d4,#0891b2)">🚢</div><div><div class="stat-value">${v.length}</div><div class="stat-label">Рейсы</div></div></div>
+<div class="stat-card"><div class="stat-icon" style="background:linear-gradient(135deg,#10b981,#059669)">🏗️</div><div><div class="stat-value">${pc.length}</div><div class="stat-label">Заходы в порты</div></div></div>
+<div class="stat-card"><div class="stat-icon" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed)">📋</div><div><div class="stat-value">${d.length}</div><div class="stat-label">Суточные донесения</div></div></div>
+</div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px">
+<div class="card"><h3 style="font-size:18px;font-weight:600;margin-bottom:16px">⛽ Топливо</h3>
+<div class="info-row"><span class="label">Всего заправлено:</span><span class="value">${tf.toLocaleString('ru-RU')} л</span></div>
+<div class="info-row"><span class="label">Общая стоимость:</span><span class="value text-green">${tc.toLocaleString('ru-RU')} ₽</span></div>
+<div class="info-row"><span class="label">Записей:</span><span class="value">${f.length}</span></div></div>
+<div class="card"><h3 style="font-size:18px;font-weight:600;margin-bottom:16px">🚢 Судно</h3>
+<div class="info-row"><span class="label">Название:</span><span class="value">${s.name||'—'}</span></div>
+<div class="info-row"><span class="label">Тип:</span><span class="value">${s.type||'—'}</span></div>
+<div class="info-row"><span class="label">Вместимость:</span><span class="value">${s.passengerCapacity||0} пасс / ${s.crewCapacity||0} экипаж</span></div></div>
+</div>
+<div class="card"><h3 style="font-size:18px;font-weight:600;margin-bottom:16px">📊 Последние записи</h3>
+${p.length===0&&v.length===0?'<div class="empty"><div class="empty-icon">📝</div><p>Нет записей. Начните с создания рейса.</p></div>':
+v.slice(-3).reverse().map(x=>`<div class="list-item"><span style="font-size:20px">🚢</span><div style="flex:1"><div style="font-weight:500">${x.name}</div><div class="text-sm">${x.departurePort} → ${x.arrivalPort}</div></div><span class="badge ${x.status==='active'?'badge-green':x.status==='completed'?'badge-blue':x.status==='planned'?'badge-yellow':'badge-red'}">${x.status==='active'?'Активный':x.status==='completed'?'Завершён':x.status==='planned'?'Запланирован':'Отменён'}</span></div>`).join('')+
+p.slice(-3).reverse().map(x=>`<div class="list-item"><span style="font-size:20px">👤</span><div style="flex:1"><div style="font-weight:500">${x.lastName} ${x.firstName}</div><div class="text-sm">Каютa: ${x.cabinNumber||'—'} | Билет: ${x.ticketNumber}</div></div></div>`).join('')}
+</div>`;
+}
+
+// ===== PASSENGERS =====
+function renderPassengers(){
+const ps=get(KEYS.passengers),vs=get(KEYS.voyages);
+return `<div class="flex-between"><h2 class="section-title">👥 Пассажиры <span>(${ps.length})</span></h2>
+<button class="btn btn-primary" onclick="toggleForm('pform')">+ Добавить</button></div>
+<div class="search-bar"><input id="psearch" placeholder="Поиск по ФИО, документу, билету..." oninput="filterPassengers()"><select id="pfilter" onchange="filterPassengers()"><option value="">Все рейсы</option>${vs.map(v=>'<option value="'+v.id+'">'+v.name+'</option>').join('')}</select></div>
+<div id="pform" class="card hidden"><h3 style="font-size:18px;font-weight:600;margin-bottom:16px">Новый пассажир</h3>
+<div class="form-grid">
+<div class="form-group"><label>Фамилия *</label><input id="pLastName" required></div>
+<div class="form-group"><label>Имя *</label><input id="pFirstName" required></div>
+<div class="form-group"><label>Отчество</label><input id="pMiddleName"></div>
+<div class="form-group"><label>Дата рождения</label><input type="date" id="pDOB"></div>
+<div class="form-group"><label>Пол</label><select id="pGender"><option value="male">Мужской</option><option value="female">Женский</option></select></div>
+<div class="form-group"><label>Гражданство</label><input id="pCitizen" value="Россия"></div>
+<div class="form-group"><label>Тип документа</label><select id="pDocType"><option value="passport">Паспорт</option><option value="internal">Внутр. паспорт</option><option value="birth_cert">Свид. о рождении</option><option value="foreign">Загранпаспорт</option></select></div>
+<div class="form-group"><label>Номер документа *</label><input id="pDocNum" required></div>
+<div class="form-group"><label>Номер билета *</label><input id="pTicket" required></div>
+<div class="form-group"><label>Номер каюты</label><input id="pCabin"></div>
+<div class="form-group"><label>Рейс</label><select id="pVoyage"><option value="">Не привязан</option>${vs.map(v=>'<option value="'+v.id+'">'+v.name+'</option>').join('')}</select></div>
+<div class="form-group"><label>Категория</label><select id="pCategory"><option value="adult">Взрослый</option><option value="child">Ребёнок</option><option value="infant">Младенец</option></select></div>
+<div class="form-group"><label>Порт посадки</label><input id="pEmbark"></div>
+<div class="form-group"><label>Порт высадки</label><input id="pDisembark"></div>
+</div>
+<div class="form-group" style="margin-bottom:16px"><label>Примечания</label><textarea id="pNotes" rows="2"></textarea></div>
+<button class="btn btn-primary" onclick="savePassenger()">Сохранить</button> <button class="btn" style="background:#334155;color:#fff" onclick="toggleForm('pform')">Отмена</button></div>
+<div id="plist"></div>`;
+}
+function initPassengers(){filterPassengers();}
+function filterPassengers(){
+const s=(document.getElementById('psearch')?.value||'').toLowerCase();
+const f=document.getElementById('pfilter')?.value||'';
+const vs=get(KEYS.voyages);
+let ps=get(KEYS.passengers).filter(p=>{
+const ms=!s||(p.lastName+' '+p.firstName+' '+p.middleName+' '+p.documentNumber+' '+p.ticketNumber).toLowerCase().includes(s);
+const mv=!f||p.voyageId===f;
+return ms&&mv;
+});
+const vn=id=>{const v=vs.find(x=>x.id===id);return v?v.name:'—';};
+document.getElementById('plist').innerHTML=ps.length===0?'<div class="empty"><div class="empty-icon">👥</div><p>Список пуст</p></div>':
+ps.map(p=>`<div class="list-item"><div class="avatar">${(p.lastName[0]||'')+(p.firstName[0]||'')}</div><div style="flex:1"><div style="font-weight:500">${p.lastName} ${p.firstName} ${p.middleName||''}</div><div class="text-sm">🎫 ${p.ticketNumber} | 🚪 ${p.cabinNumber||'—'} | 📄 ${p.documentNumber}${p.voyageId?' | 🚢 '+vn(p.voyageId):''}</div></div><span class="badge ${p.category==='adult'?'badge-blue':p.category==='child'?'badge-green':'badge-purple'}">${p.category==='adult'?'Взрослый':p.category==='child'?'Ребёнок':'Младенец'}</span><button class="btn btn-sm" style="background:rgba(239,68,68,.2);color:#fca5a5" onclick="delPassenger('${p.id}')">🗑️</button></div>`).join('');
+}
+function savePassenger(){
+const ln=document.getElementById('pLastName').value,fn=document.getElementById('pFirstName').value,tk=document.getElementById('pTicket').value,dn=document.getElementById('pDocNum').value;
+if(!ln||!fn||!tk||!dn){alert('Заполните обязательные поля');return;}
+const ps=get(KEYS.passengers);
+ps.push({id:gid(),lastName:ln,firstName:fn,middleName:document.getElementById('pMiddleName').value,dateOfBirth:document.getElementById('pDOB').value,gender:document.getElementById('pGender').value,citizenship:document.getElementById('pCitizen').value,documentType:document.getElementById('pDocType').value,documentNumber:dn,ticketNumber:tk,cabinNumber:document.getElementById('pCabin').value,voyageId:document.getElementById('pVoyage').value,category:document.getElementById('pCategory').value,embarkationPort:document.getElementById('pEmbark').value,disembarkationPort:document.getElementById('pDisembark').value,notes:document.getElementById('pNotes').value,createdAt:new Date().toISOString()});
+set(KEYS.passengers,ps);renderContent();
+}
+function delPassenger(id){if(confirm('Удалить?')){set(KEYS.passengers,get(KEYS.passengers).filter(p=>p.id!==id));renderContent();}}
+
+// ===== VOYAGES =====
+function renderVoyages(){
+const vs=get(Voyages=KEYS.voyages),ps=get(KEYS.passengers);
+const vList=get(KEYS.voyages);
+return `<div class="flex-between"><h2 class="section-title">🚢 Рейсы <span>(${vList.length})</span></h2>
+<button class="btn btn-primary" onclick="toggleForm('vform')">+ Новый рейс</button></div>
+<div id="vform" class="card hidden"><h3 style="font-size:18px;font-weight:600;margin-bottom:16px">Новый рейс</h3>
+<div class="form-grid">
+<div><label>Название рейса *</label><input id="vName" required></div>
+<div><label>Судно</label><input id="vShip"></div>
+<div><label>Статус</label><select id="vStatus"><option value="planned">Запланирован</option><option value="active">Активный</option><option value="completed">Завершён</option><option value="cancelled">Отменён</option></select></div>
+<div><label>Дата отправления *</label><input type="date" id="vStart" required></div>
+<div><label>Дата прибытия</label><input type="date" id="vEnd"></div>
+<div><label>Порт отправления *</label><input id="vDep" required></div>
+<div><label>Порт прибытия *</label><input id="vArr" required></div>
+</div>
+<div class="form-group" style="margin-bottom:16px"><label>Примечания</label><textarea id="vNotes" rows="2"></textarea></div>
+<button class="btn btn-primary" onclick="saveVoyage()">Сохранить</button> <button class="btn" style="background:#334155;color:#fff" onclick="toggleForm('vform')">Отмена</button></div>
+<div id="vlist"></div>`;
+}
+function initVoyages(){
+const vs=get(KEYS.voyages),ps=get(KEYS.passengers);
+const sl={planned:{l:'Запланирован',c:'badge-yellow'},active:{l:'Активный',c:'badge-green'},completed:{l:'Завершён',c:'badge-blue'},cancelled:{l:'Отменён',c:'badge-red'}};
+document.getElementById('vlist').innerHTML=vs.length===0?'<div class="empty"><div class="empty-icon">🚢</div><p>Нет рейсов</p></div>':
+vs.map(v=>{const pc=ps.filter(p=>p.voyageId===v.id).length;const s=sl[v.status]||sl.planned;
+return `<div class="card"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px"><div style="flex:1"><div style="display:flex;align-items:center;gap:12px;margin-bottom:8px"><h3 style="font-size:18px;font-weight:600">${v.name}</h3><span class="badge ${s.c}" style="cursor:pointer" onclick="cycleStatus('${v.id}')" title="Нажмите для смены">${s.l}</span></div><div class="text-sm" style="margin-bottom:4px">📅 ${v.startDate?new Date(v.startDate).toLocaleDateString('ru-RU'):''} ${v.endDate?'— '+new Date(v.endDate).toLocaleDateString('ru-RU'):''} ${v.shipName?'| 🚢 '+v.shipName:''} | 👥 ${pc} пасс.</div><div style="color:#60a5fa">${v.departurePort} → ${v.arrivalPort}</div>${v.notes?'<p class="text-sm mt-2">'+v.notes+'</p>':''}</div><button class="btn btn-sm" style="background:rgba(239,68,68,.2);color:#fca5a5" onclick="delVoyage('${v.id}')">🗑️</button></div></div>`;
+}).join('');
+}
+function saveVoyage(){
+const n=document.getElementById('vName').value,d=document.getElementById('vDep').value,a=document.getElementById('vArr').value,sd=document.getElementById('vStart').value;
+if(!n||!d||!a||!sd){alert('Заполните обязательные поля');return;}
+const vs=get(KEYS.voyages);
+vs.push({id:gid(),name:n,shipName:document.getElementById('vShip').value,status:document.getElementById('vStatus').value,startDate:sd,endDate:document.getElementById('vEnd').value,departurePort:d,arrivalPort:a,notes:document.getElementById('vNotes').value,createdAt:new Date().toISOString()});
+set(KEYS.voyages,vs);renderContent();
+}
+function delVoyage(id){if(confirm('Удалить?')){set(KEYS.voyages,get(KEYS.voyages).filter(v=>v.id!==id));renderContent();}}
+function cycleStatus(id){
+const sts=['planned','active','completed','cancelled'];
+const vs=get(KEYS.voyages);const v=vs.find(x=>x.id===id);
+if(v){v.status=sts[(sts.indexOf(v.status)+1)%sts.length];set(KEYS.voyages,vs);renderContent();}
+}
+
+// ===== PORT CALLS =====
+function renderPortCalls(){
+const vs=get(KEYS.voyages);
+return `<div class="flex-between"><h2 class="section-title">🏗️ Заходы в порты <span>(${get(KEYS.portCalls).length})</span></h2>
+<button class="btn btn-primary" onclick="toggleForm('pcform')">+ Добавить заход</button></div>
+<div id="pcform" class="card hidden"><h3 style="font-size:18px;font-weight:600;margin-bottom:16px">Заход в порт</h3>
+<div class="form-grid">
+<div><label>Рейс</label><select id="pcVoyage"><option value="">Не привязан</option>${vs.map(v=>'<option value="'+v.id+'">'+v.name+'</option>').join('')}</select></div>
+<div><label>Порт *</label><input id="pcPort" required></div>
+<div><label>Страна</label><input id="pcCountry"></div>
+<div><label>Дата прибытия</label><input type="date" id="pcArrDate"></div>
+<div><label>Время прибытия</label><input type="time" id="pcArrTime"></div>
+<div><label>Дата отбытия</label><input type="date" id="pcDepDate"></div>
+<div><label>Время отбытия</label><input type="time" id="pcDepTime"></div>
+<div><label>Номер причала</label><input id="pcBerth"></div>
+<div><label>Пассажиров на борту</label><input type="number" id="pcOnboard" value="0"></div>
+<div><label>Высажено</label><input type="number" id="pcDisembarked" value="0"></div>
+<div><label>Посажено</label><input type="number" id="pcEmbarked" value="0"></div>
+</div>
+<div class="form-group" style="margin-bottom:16px"><label>Примечания</label><textarea id="pcNotes" rows="2"></textarea></div>
+<button class="btn btn-primary" onclick="savePortCall()">Сохранить</button> <button class="btn" style="background:#334155;color:#fff" onclick="toggleForm('pcform')">Отмена</button></div>
+<div id="pclist"></div>`;
+}
+function initPortCalls(){
+const pcs=get(KEYS.portCalls),vs=get(KEYS.voyages);
+const vn=id=>{const v=vs.find(x=>x.id===id);return v?v.name:'—';};
+document.getElementById('pclist').innerHTML=pcs.length===0?'<div class="empty"><div class="empty-icon">🏗️</div><p>Нет записей</p></div>':
+pcs.map(pc=>`<div class="card"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px"><div style="flex:1"><h3 style="font-size:18px;font-weight:600;margin-bottom:8px">🏗️ ${pc.portName} ${pc.country?'<span class="text-sm">'+pc.country+'</span>':''}</h3>
+<div class="text-sm">${pc.arrivalDate?'⬇️ Прибытие: '+new Date(pc.arrivalDate).toLocaleDateString('ru-RU')+' '+pc.arrivalTime:''} ${pc.departureDate?'| ⬆️ Отбытие: '+new Date(pc.departureDate).toLocaleDateString('ru-RU')+' '+pc.departureTime:''}</div>
+<div class="text-sm mt-2">${pc.berthNumber?'📍 Причал: '+pc.berthNumber+' | ':''}${pc.voyageId?'🚢 '+vn(pc.voyageId):''}</div>
+<div class="text-sm mt-2"><span class="text-blue">На борту: ${pc.passengersOnboard||0}</span> | <span class="text-red">Высажено: ${pc.passengersDisembarked||0}</span> | <span class="text-green">Посажено: ${pc.passengersEmbarked||0}</span></div>
+${pc.notes?'<p class="text-sm mt-2">'+pc.notes+'</p>':''}</div><button class="btn btn-sm" style="background:rgba(239,68,68,.2);color:#fca5a5" onclick="delPortCall('${pc.id}')">🗑️</button></div></div>`).join('');
+}
+function savePortCall(){
+const port=document.getElementById('pcPort').value;
+if(!port){alert('Укажите порт');return;}
+const pcs=get(KEYS.portCalls);
+pcs.push({id:gid(),voyageId:document.getElementById('pcVoyage').value,portName:port,country:document.getElementById('pcCountry').value,arrivalDate:document.getElementById('pcArrDate').value,arrivalTime:document.getElementById('pcArrTime').value,departureDate:document.getElementById('pcDepDate').value,departureTime:document.getElementById('pcDepTime').value,berthNumber:document.getElementById('pcBerth').value,passengersOnboard:+document.getElementById('pcOnboard').value,passengersDisembarked:+document.getElementById('pcDisembarked').value,passengersEmbarked:+document.getElementById('pcEmbarked').value,notes:document.getElementById('pcNotes').value,createdAt:new Date().toISOString()});
+set(KEYS.portCalls,pcs);renderContent();
+}
+function delPortCall(id){if(confirm('Удалить?')){set(KEYS.portCalls,get(KEYS.portCalls).filter(p=>p.id!==id));renderContent();}}
+
+// ===== FUEL =====
+function renderFuel(){
+const vs=get(KEYS.voyages);
+return `<div class="flex-between"><h2 class="section-title">⛽ Топливо <span>(${get(KEYS.fuel).length})</span></h2>
+<button class="btn btn-primary" onclick="toggleForm('fform')">+ Добавить запись</button></div>
+<div id="flist-summary"></div>
+<div id="fform" class="card hidden"><h3 style="font-size:18px;font-weight:600;margin-bottom:16px">Запись о топливе</h3>
+<div class="form-grid">
+<div><label>Рейс</label><select id="fVoyage"><option value="">Не привязан</option>${vs.map(v=>'<option value="'+v.id+'">'+v.name+'</option>').join('')}</select></div>
+<div><label>Дата *</label><input type="date" id="fDate" required></div>
+<div><label>Тип топлива</label><select id="fType"><option value="diesel">Дизельное</option><option value="heavy">Тяжёлое</option><option value="gas">Газ</option></select></div>
+<div><label>Количество (л) *</label><input type="number" id="fQty" required></div>
+<div><label>Цена за литр (₽)</label><input type="number" step="0.01" id="fPrice" value="0"></div>
+<div><label>Порт / Место</label><input id="fPort"></div>
+<div><label>Поставщик</label><input id="fSupplier"></div>
+<div><label>Бак до (%)</label><input type="number" id="fBefore" value="0"></div>
+<div><label>Бак после (%)</label><input type="number" id="fAfter" value="0"></div>
+</div>
+<div class="form-group" style="margin-bottom:16px"><label>Примечания</label><textarea id="fNotes" rows="2"></textarea></div>
+<button class="btn btn-primary" onclick="saveFuel()">Сохранить</button> <button class="btn" style="background:#334155;color:#fff" onclick="toggleForm('fform')">Отмена</button></div>
+<div id="flist"></div>`;
+}
+function initFuel(){
+const fs=get(KEYS.fuel);
+const tl={diesel:'Дизельное',heavy:'Тяжёлое',gas:'Газ'};
+const tf=fs.reduce((a,b)=>a+(+b.quantityLiters||0),0);
+const tc=fs.reduce((a,b)=>a+(+b.totalCost||0),0);
+document.getElementById('flist-summary').innerHTML=`<div class="stats" style="margin-bottom:16px">
+<div class="stat-card"><div><div class="stat-value">${tf.toLocaleString('ru-RU')}</div><div class="stat-label">Всего литров</div></div></div>
+<div class="stat-card"><div><div class="stat-value text-green">${tc.toLocaleString('ru-RU')} ₽</div><div class="stat-label">Общая стоимость</div></div></div>
+<div class="stat-card"><div><div class="stat-value text-blue">${fs.length}</div><div class="stat-label">Заправок</div></div></div>
+<div class="stat-card"><div><div class="stat-value" style="color:#c084fc">${fs.length>0?Math.round(tf/fs.length).toLocaleString('ru-RU'):0}</div><div class="stat-label">Среднее л/заправка</div></div></div></div>`;
+document.getElementById('flist').innerHTML=fs.length===0?'<div class="empty"><div class="empty-icon">⛽</div><p>Нет записей</p></div>':
+fs.map(r=>`<div class="list-item"><div style="width:40px;height:40px;background:linear-gradient(135deg,#f59e0b,#ea580c);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">⛽</div><div style="flex:1"><div style="font-weight:500">${tl[r.fuelType]||r.fuelType} — ${(+r.quantityLiters).toLocaleString('ru-RU')} л</div><div class="text-sm">📅 ${r.date?new Date(r.date).toLocaleDateString('ru-RU'):''} ${r.portName?'| 📍 '+r.portName:''} ${r.supplier?'| 🏢 '+r.supplier:''} ${r.totalCost>0?'| <span class="text-green">💰 '+r.totalCost.toLocaleString('ru-RU')+' ₽</span>':''}</div></div><button class="btn btn-sm" style="background:rgba(239,68,68,.2);color:#fca5a5" onclick="delFuel('${r.id}')">🗑️</button></div>`).join('');
+}
+function saveFuel(){
+const qty=document.getElementById('fQty').value,date=document.getElementById('fDate').value;
+if(!qty||!date){alert('Заполните обязательные поля');return;}
+const fs=get(KEYS.fuel);const price=+document.getElementById('fPrice').value;
+fs.push({id:gid(),voyageId:document.getElementById('fVoyage').value,date,fuelType:document.getElementById('fType').value,quantityLiters:+qty,costPerLiter:price,totalCost:+qty*price,portName:document.getElementById('fPort').value,supplier:document.getElementById('fSupplier').value,tankLevelBefore:+document.getElementById('fBefore').value,tankLevelAfter:+document.getElementById('fAfter').value,notes:document.getElementById('fNotes').value,createdAt:new Date().toISOString()});
+set(KEYS.fuel,fs);renderContent();
+}
+function delFuel(id){if(confirm('Удалить?')){set(KEYS.fuel,get(KEYS.fuel).filter(r=>r.id!==id));renderContent();}}
+
+// ===== DAILY REPORT =====
+function renderDaily(){
+const vs=get(KEYS.voyages);
+return `<div class="flex-between"><h2 class="section-title">📋 Суточные донесения <span>(${get(KEYS.daily).length})</span></h2>
+<button class="btn btn-primary" onclick="toggleForm('dform')">+ Новое донесение</button></div>
+<div id="dform" class="card hidden"><h3 style="font-size:18px;font-weight:600;margin-bottom:16px">Суточное донесение</h3>
+<h4 style="color:#60a5fa;font-size:14px;margin-bottom:12px">🧭 Навигация</h4>
+<div class="form-grid">
+<div><label>Рейс</label><select id="dVoyage"><option value="">Не привязан</option>${vs.map(v=>'<option value="'+v.id+'">'+v.name+'</option>').join('')}</select></div>
+<div><label>Дата *</label><input type="date" id="dDate" value="${new Date().toISOString().split('T')[0]}" required></div>
+<div><label>Время</label><input type="time" id="dTime" value="${new Date().toTimeString().slice(0,5)}"></div>
+<div><label>Широта</label><input id="dLat" placeholder="68°58'N"></div>
+<div><label>Долгота</label><input id="dLon" placeholder="33°05'E"></div>
+<div><label>Скорость (узлы)</label><input type="number" step="0.1" id="dSpeed" value="0"></div>
+<div><label>Курс (°)</label><input type="number" id="dCourse" value="0"></div>
+<div><label>Пройдено (мили)</label><input type="number" step="0.1" id="dDist" value="0"></div>
+<div><label>Моточасы</label><input type="number" step="0.1" id="dEngine" value="0"></div>
+</div>
+<h4 style="color:#60a5fa;font-size:14px;margin:16px 0 12px">🌤️ Метеоусловия</h4>
+<div class="form-grid">
+<div><label>Направление ветра</label><input id="dWindDir" placeholder="NW"></div>
+<div><label>Сила ветра (баллы)</label><input type="number" id="dWindForce" value="0"></div>
+<div><label>Волнение моря (0-7)</label><input type="number" id="dSea" value="0" min="0" max="7"></div>
+<div><label>Видимость</label><input id="dVis" placeholder="10 миль"></div>
+<div><label>Погода</label><input id="dWeather" placeholder="Облачно"></div>
+<div><label>Температура (°C)</label><input type="number" id="dTemp" value="0"></div>
+<div><label>Давление (мм)</label><input type="number" id="dPressure" value="0"></div>
+</div>
+<h4 style="color:#60a5fa;font-size:14px;margin:16px 0 12px">👥 Люди и топливо</h4>
+<div class="form-grid">
+<div><label>Пассажиров</label><input type="number" id="dPax" value="0"></div>
+<div><label>Экипаж</label><input type="number" id="dCrew" value="0"></div>
+<div><label>Топливо остаток (л)</label><input type="number" id="dFuel" value="0"></div>
+</div>
+<div class="form-group" style="margin:16px 0"><label>Примечания</label><textarea id="dNotes" rows="3"></textarea></div>
+<button class="btn btn-primary" onclick="saveDaily()">Сохранить</button> <button class="btn" style="background:#334155;color:#fff" onclick="toggleForm('dform')">Отмена</button></div>
+<div id="dlist"></div>`;
+}
+function initDaily(){
+const ds=get(KEYS.daily).sort((a,b)=>new Date(b.date)-new Date(a.date));
+document.getElementById('dlist').innerHTML=ds.length===0?'<div class="empty"><div class="empty-icon">📋</div><p>Нет донесений</p></div>':
+ds.map(r=>`<div class="card"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px"><div style="flex:1"><h3 style="font-size:18px;font-weight:600;margin-bottom:8px">📋 ${r.date?new Date(r.date).toLocaleDateString('ru-RU'):''} ${r.time?'в '+r.time:''}</h3>
+<div class="text-sm" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:4px">
+${r.position?.latitude?'<span>📍 '+r.position.latitude+' '+r.position.longitude+'</span>':''}
+${+r.speed>0?'<span>🏎️ '+r.speed+' уз</span>':''}
+${+r.course>0?'<span>🧭 '+r.course+'°</span>':''}
+${+r.distanceCovered>0?'<span>📏 '+r.distanceCovered+' миль</span>':''}
+${r.windDirection?'<span>💨 '+r.windDirection+' '+r.windForce+' б</span>':''}
+${r.weather?'<span>🌤️ '+r.weather+'</span>':''}
+${+r.temperature!==0?'<span>🌡️ '+r.temperature+'°C</span>':''}
+${+r.pressure>0?'<span>📊 '+r.pressure+' мм</span>':''}
+<span>👥 ${r.passengersOnboard||0} пасс / ${r.crewOnboard||0} экипаж</span>
+${+r.fuelRemaining>0?'<span>⛽ '+r.fuelRemaining+' л</span>':''}
+</div>${r.notes?'<p class="text-sm mt-2">'+r.notes+'</p>':''}</div><button class="btn btn-sm" style="background:rgba(239,68,68,.2);color:#fca5a5" onclick="delDaily('${r.id}')">🗑️</button></div></div>`).join('');
+}
+function saveDaily(){
+const date=document.getElementById('dDate').value;
+if(!date){alert('Укажите дату');return;}
+const ds=get(KEYS.daily);
+ds.push({id:gid(),voyageId:document.getElementById('dVoyage').value,date,time:document.getElementById('dTime').value,position:{latitude:document.getElementById('dLat').value,longitude:document.getElementById('dLon').value},speed:+document.getElementById('dSpeed').value,course:+document.getElementById('dCourse').value,windDirection:document.getElementById('dWindDir').value,windForce:+document.getElementById('dWindForce').value,seaState:+document.getElementById('dSea').value,visibility:document.getElementById('dVis').value,weather:document.getElementById('dWeather').value,temperature:+document.getElementById('dTemp').value,pressure:+document.getElementById('dPressure').value,passengersOnboard:+document.getElementById('dPax').value,crewOnboard:+document.getElementById('dCrew').value,fuelRemaining:+document.getElementById('dFuel').value,distanceCovered:+document.getElementById('dDist').value,engineHours:+document.getElementById('dEngine').value,notes:document.getElementById('dNotes').value,createdAt:new Date().toISOString()});
+set(KEYS.daily,ds);renderContent();
+}
+function delDaily(id){if(confirm('Удалить?')){set(KEYS.daily,get(KEYS.daily).filter(r=>r.id!==id));renderContent();}}
+
+// ===== SETTINGS =====
+function renderSettings(){
+const s=getShip();
+return `<h2 class="section-title">⚙️ Настройки</h2>
+<div class="card"><h3 style="font-size:18px;font-weight:600;margin-bottom:16px">🚢 Информация о судне</h3>
+<div class="form-grid">
+<div><label>Название</label><input id="sName" value="${s.name||''}"></div>
+<div><label>IMO</label><input id="sIMO" value="${s.imo||''}"></div>
+<div><label>Позывной</label><input id="sCall" value="${s.callSign||''}"></div>
+<div><label>Флаг</label><input id="sFlag" value="${s.flag||''}"></div>
+<div><label>Тип</label><input id="sType" value="${s.type||''}"></div>
+<div><label>Год постройки</label><input type="number" id="sYear" value="${s.yearBuilt||''}"></div>
+<div><label>Длина (м)</label><input type="number" step="0.1" id="sLen" value="${s.length||''}"></div>
+<div><label>Ширина (м)</label><input type="number" step="0.1" id="sBeam" value="${s.beam||''}"></div>
+<div><label>Осадка (м)</label><input type="number" step="0.1" id="sDraft" value="${s.draft||''}"></div>
+<div><label>Валовая вместимость</label><input type="number" id="sGT" value="${s.grossTonnage||''}"></div>
+<div><label>Пассажиров</label><input type="number" id="sPax" value="${s.passengerCapacity||''}"></div>
+<div><label>Экипаж</label><input type="number" id="sCrew" value="${s.crewCapacity||''}"></div>
+<div><label>Мощность (л.с.)</label><input type="number" id="sPower" value="${s.enginePower||''}"></div>
+</div>
+<button class="btn btn-primary mt-2" onclick="saveShipInfo()">💾 Сохранить</button> <span id="shipSaved" class="text-green hidden">✓ Сохранено!</span></div>
+<div class="card"><h3 style="font-size:18px;font-weight:600;margin-bottom:16px">💾 Управление данными</h3>
+<div style="display:flex;flex-wrap:wrap;gap:12px">
+<button class="btn btn-success" onclick="exportData()">📤 Экспорт (JSON)</button>
+<label class="btn btn-purple" style="cursor:pointer">📥 Импорт (JSON)<input type="file" accept=".json" onchange="importData(event)" style="display:none"></label>
+<button class="btn btn-danger" onclick="clearData()">🗑️ Очистить всё</button>
+</div><div id="importMsg" class="mt-2"></div></div>
+<div class="card"><h3 style="font-size:18px;font-weight:600;margin-bottom:16px">ℹ️ О приложении</h3>
+<div class="text-sm"><p><strong style="color:#fff">Судовой журнал</strong> — приложение для учёта пассажиров, рейсов, заходов в порты, топлива и суточных донесений.</p><p class="mt-2">Версия: 5.4.1 | Данные хранятся локально в браузере</p></div></div>`;
+}
+function initSettings(){}
+function saveShipInfo(){
+setShip({name:document.getElementById('sName').value,imo:document.getElementById('sIMO').value,callSign:document.getElementById('sCall').value,flag:document.getElementById('sFlag').value,type:document.getElementById('sType').value,yearBuilt:+document.getElementById('sYear').value,length:+document.getElementById('sLen').value,beam:+document.getElementById('sBeam').value,draft:+document.getElementById('sDraft').value,grossTonnage:+document.getElementById('sGT').value,passengerCapacity:+document.getElementById('sPax').value,crewCapacity:+document.getElementById('sCrew').value,enginePower:+document.getElementById('sPower').value});
+const el=document.getElementById('shipSaved');el.classList.remove('hidden');setTimeout(()=>el.classList.add('hidden'),2000);
+}
+function exportData(){
+const data=JSON.stringify({passengers:get(KEYS.passengers),voyages:get(KEYS.voyages),portCalls:get(KEYS.portCalls),fuel:get(KEYS.fuel),dailyReports:get(KEYS.daily),shipInfo:getShip(),exportDate:new Date().toISOString()},null,2);
+const blob=new Blob([data],{type:'application/json'});const url=URL.createObjectURL(blob);
+const a=document.createElement('a');a.href=url;a.download='voyage-log-'+new Date().toISOString().split('T')[0]+'.json';a.click();URL.revokeObjectURL(url);
+}
+function importData(e){
+const file=e.target.files[0];if(!file)return;
+const reader=new FileReader();
+reader.onload=ev=>{
+try{const d=JSON.parse(ev.target.result);
+if(d.passengers)set(KEYS.passengers,d.passengers);
+if(d.voyages)set(KEYS.voyages,d.voyages);
+if(d.portCalls)set(KEYS.portCalls,d.portCalls);
+if(d.fuel)set(KEYS.fuel,d.fuel);
+if(d.dailyReports)set(KEYS.daily,d.dailyReports);
+if(d.shipInfo)setShip(d.shipInfo);
+document.getElementById('importMsg').innerHTML='<span class="text-green">✓ Данные импортированы!</span>';
+renderContent();
+}catch{document.getElementById('importMsg').innerHTML='<span class="text-red">✕ Ошибка импорта</span>';}
+};reader.readAsText(file);
+}
+function clearData(){
+if(confirm('Все данные будут удалены! Продолжить?')){
+Object.values(KEYS).forEach(k=>localStorage.removeItem(k));
+renderContent();
+}
+}
+
+// ===== UTILS =====
+function toggleForm(id){document.getElementById(id).classList.toggle('hidden');}
+
+// ===== INIT =====
+renderNav();
+renderContent();
+</script>
+</body>
+</html>
